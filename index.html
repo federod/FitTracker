@@ -268,7 +268,7 @@
       <header class="drawer__header">
         <div>
           <h2 id="foodDrawerTitle">Add food</h2>
-          <p class="drawer__subtitle" id="foodDrawerSubtitle">Search the Edamam database or quick add calories.</p>
+          <p class="drawer__subtitle" id="foodDrawerSubtitle">Search OpenFoodFacts or quick add calories.</p>
         </div>
         <button class="icon-button" type="button" data-drawer-close="foodDrawer" aria-label="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -359,7 +359,7 @@
       <header class="drawer__header">
         <div>
           <h2 id="settingsDrawerTitle">Settings &amp; goals</h2>
-          <p class="drawer__subtitle">Update calorie targets, macros, and Edamam API credentials.</p>
+          <p class="drawer__subtitle">Update calorie targets and macro goals.</p>
         </div>
         <button class="icon-button" type="button" data-drawer-close="settingsDrawer" aria-label="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -392,40 +392,6 @@
             <label class="form__field">
               <span>Fat (g)</span>
               <input type="number" id="goalFatInput" min="0" step="1" required />
-            </label>
-          </div>
-        </fieldset>
-
-        <fieldset>
-          <legend>Edamam Food Database API</legend>
-          <p class="form__help">
-            Generate credentials at <a href="https://developer.edamam.com/" target="_blank" rel="noreferrer">developer.edamam.com</a>.
-            Requests are made client-side; keys are stored locally in your browser.
-          </p>
-          <div class="form__row">
-            <label class="form__field">
-              <span>App ID</span>
-              <input type="text" id="apiAppIdInput" autocomplete="off" />
-            </label>
-          </div>
-          <div class="form__row">
-            <label class="form__field">
-              <span>App key</span>
-              <input type="password" id="apiAppKeyInput" autocomplete="off" />
-            </label>
-          </div>
-        </fieldset>
-
-        <fieldset>
-          <legend>Workout library API</legend>
-          <p class="form__help">
-            Optional: point to a JSON API that returns an array of workout definitions.
-            Leave blank to use the built-in Apple-style catalogue.
-          </p>
-          <div class="form__row">
-            <label class="form__field">
-              <span>Endpoint URL</span>
-              <input type="url" id="apiWorkoutEndpointInput" placeholder="https://example.com/workouts" />
             </label>
           </div>
         </fieldset>

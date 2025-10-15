@@ -10,11 +10,6 @@ const DEFAULT_SETTINGS = {
     protein: 190,
     fat: 90,
   },
-  api: {
-    edamamAppId: '',
-    edamamAppKey: '',
-    workoutEndpoint: '',
-  },
 };
 
 const MEALS = [
@@ -33,6 +28,7 @@ const SAMPLE_RESULTS = [
     carbs: 0,
     fat: 3.6,
     serving: { quantity: 1, unit: 'piece (120g)' },
+    source: 'sample',
   },
   {
     label: 'Oatmeal, cooked with water',
@@ -42,6 +38,7 @@ const SAMPLE_RESULTS = [
     carbs: 27,
     fat: 3.2,
     serving: { quantity: 1, unit: 'cup' },
+    source: 'sample',
   },
   {
     label: 'Greek Yogurt (Nonfat)',
@@ -51,6 +48,7 @@ const SAMPLE_RESULTS = [
     carbs: 6,
     fat: 0,
     serving: { quantity: 1, unit: 'container (170g)' },
+    source: 'sample',
   },
   {
     label: 'Almonds',
@@ -60,6 +58,7 @@ const SAMPLE_RESULTS = [
     carbs: 6,
     fat: 15,
     serving: { quantity: 1, unit: 'oz (~23 nuts)' },
+    source: 'sample',
   },
   {
     label: 'Protein Shake (Whey, water)',
@@ -69,6 +68,7 @@ const SAMPLE_RESULTS = [
     carbs: 3,
     fat: 2,
     serving: { quantity: 1, unit: 'scoop' },
+    source: 'sample',
   },
 ];
 
@@ -255,6 +255,13 @@ const DEFAULT_WORKOUT_LIBRARY = [
   },
 ];
 
+const WORKOUT_CATEGORY_PRESETS = {
+  Cardio: { met: 8.5, caloriesPerHour: 650, intensity: 'High', defaultDuration: 40 },
+  Strength: { met: 6, caloriesPerHour: 480, intensity: 'Moderate', defaultDuration: 45 },
+  'Mind & Body': { met: 3.2, caloriesPerHour: 260, intensity: 'Light', defaultDuration: 45 },
+  Mobility: { met: 3, caloriesPerHour: 230, intensity: 'Light', defaultDuration: 30 },
+};
+
 const elements = {
   meals: {},
   macros: {},
@@ -357,9 +364,6 @@ function cacheElements() {
   elements.goalCarbsInput = document.getElementById('goalCarbsInput');
   elements.goalProteinInput = document.getElementById('goalProteinInput');
   elements.goalFatInput = document.getElementById('goalFatInput');
-  elements.apiAppIdInput = document.getElementById('apiAppIdInput');
-  elements.apiAppKeyInput = document.getElementById('apiAppKeyInput');
-  elements.apiWorkoutEndpointInput = document.getElementById('apiWorkoutEndpointInput');
 }
 
 function bindEvents() {
@@ -580,9 +584,9 @@ function renderWorkoutLibrary() {
   }
 
   if (!library.items.length) {
-    elements.workoutSearchStatus.textContent = library.status === 'error'
-      ? 'Could not load workouts. Add manually for now.'
-      : 'No workouts available.';
+    elements.workoutSearchStatus.textContent = library.status === 'fallback'
+      ? 'Using built-in workouts. Add manually for now.'
+      : 'No workouts available yet.';
     elements.workoutResults.innerHTML = '';
     return;
   }
@@ -674,29 +678,14 @@ async function loadWorkoutLibrary(forceRefresh = false) {
     state.workoutLibrary.category = 'All';
   }
 
-  const endpoint = state.settings.api.workoutEndpoint?.trim();
-  const sources = [];
-  if (endpoint) sources.push(endpoint);
-  sources.push('./assets/workouts.json');
-
   let items = null;
-  for (const url of sources) {
-    try {
-      const data = await fetchWorkoutData(url);
-      if (Array.isArray(data) && data.length) {
-        items = data;
-        break;
-      }
-    } catch (error) {
-      console.warn('Workout library fetch failed for', url, error);
-    }
-  }
-
-  if (!items) {
+  try {
+    items = await fetchWgerExercises();
+    state.workoutLibrary.status = 'ready';
+  } catch (error) {
+    console.warn('Workout library fetch failed', error);
     items = DEFAULT_WORKOUT_LIBRARY;
     state.workoutLibrary.status = 'fallback';
-  } else {
-    state.workoutLibrary.status = 'ready';
   }
 
   const normalized = items.map((item, index) => normalizeWorkout(item, index));
@@ -711,10 +700,65 @@ async function loadWorkoutLibrary(forceRefresh = false) {
   renderWorkoutLibrary();
 }
 
-async function fetchWorkoutData(url) {
-  const response = await fetch(url, { cache: 'no-store' });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return response.json();
+async function fetchWgerExercises() {
+  const workouts = [];
+  let nextUrl = 'https://wger.de/api/v2/exerciseinfo/?language=2&limit=200&status=2';
+  const seen = new Set();
+  while (nextUrl && workouts.length < 500) {
+    const response = await fetch(nextUrl, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    const results = Array.isArray(payload.results) ? payload.results : [];
+    results.forEach((exercise) => {
+      if (!exercise || !exercise.name) return;
+      if (exercise.language !== 2) return;
+      if (seen.has(exercise.id)) return;
+      seen.add(exercise.id);
+      const prepared = prepareWgerExercise(exercise);
+      if (prepared) {
+        workouts.push(prepared);
+      }
+    });
+    nextUrl = payload.next;
+  }
+  return workouts;
+}
+
+function prepareWgerExercise(exercise) {
+  const rawCategory = exercise.category?.name || 'Other';
+  const category = mapWgerCategory(rawCategory);
+  const preset = WORKOUT_CATEGORY_PRESETS[category] || WORKOUT_CATEGORY_PRESETS.Strength;
+  const equipmentNames = Array.isArray(exercise.equipment)
+    ? exercise.equipment.map((item) => item?.name).filter(Boolean)
+    : [];
+  const descriptionParts = [];
+  if (exercise.description) descriptionParts.push(stripHtml(exercise.description));
+  if (exercise.description_plain) descriptionParts.push(stripHtml(exercise.description_plain));
+  if (equipmentNames.length) descriptionParts.push(`Equipment: ${equipmentNames.join(', ')}`);
+  const description = descriptionParts.join(' ').trim();
+  return {
+    id: `wger_${exercise.id}`,
+    name: exercise.name.trim(),
+    category,
+    intensity: preset.intensity,
+    met: preset.met,
+    caloriesPerHour: preset.caloriesPerHour,
+    defaultDuration: preset.defaultDuration,
+    description,
+  };
+}
+
+function mapWgerCategory(name) {
+  const normalized = (name || '').toLowerCase();
+  if (['cardio', 'plyometrics', 'aerobics'].includes(normalized)) return 'Cardio';
+  if (['stretching', 'yoga', 'pilates'].includes(normalized)) return 'Mind & Body';
+  if (['rehabilitation', 'mobility'].includes(normalized)) return 'Mobility';
+  return 'Strength';
+}
+
+function stripHtml(value) {
+  if (!value) return '';
+  return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 function normalizeWorkout(entry, index) {
@@ -766,6 +810,8 @@ function logWorkoutFromLibrary(workout, duration) {
     source: 'library',
     catalogId: workout.id,
     category: workout.category,
+    intensity: workout.intensity,
+    met: workout.met,
   };
   appendWorkout(entry);
   elements.workoutSearchStatus.textContent = `Logged ${workout.name} for ${duration} min (${calories} kcal).`;
@@ -799,6 +845,7 @@ function renderWorkoutEntry(workout) {
   if (workout.duration) detailParts.push(`${workout.duration} min`);
   detailParts.push(`${formatNumber(workout.calories)} kcal`);
   if (workout.category) detailParts.push(sanitize(workout.category));
+  if (workout.intensity) detailParts.push(`${sanitize(workout.intensity)} intensity`);
   if (workout.source) {
     const sourceLabel = workout.source === 'library' ? 'Library' : capitalize(workout.source);
     detailParts.push(sanitize(sourceLabel));
@@ -976,7 +1023,7 @@ function openFoodDrawer(mealKey, quickAdd) {
   state.activeMeal = mealKey;
   elements.foodDrawerSubtitle.textContent = quickAdd
     ? `Quick add to ${capitalize(mealKey)}.`
-    : `Search foods to log under ${capitalize(mealKey)}.`;
+    : `Searching OpenFoodFacts and logging under ${capitalize(mealKey)}.`;
   if (quickAdd) {
     elements.quickAddSection.setAttribute('open', '');
     elements.foodSearchInput.value = '';
@@ -1006,64 +1053,121 @@ function handleFoodSearchSubmit(event) {
 }
 
 async function performFoodSearch(query) {
-  const { edamamAppId, edamamAppKey } = state.settings.api;
-  elements.foodSearchStatus.textContent = 'Searching...';
+  elements.foodSearchStatus.textContent = 'Searching OpenFoodFacts...';
   elements.foodResults.innerHTML = '';
   state.searchCache.clear();
 
-  if (!edamamAppId || !edamamAppKey) {
-    elements.foodSearchStatus.innerHTML = 'Add your Edamam App ID & key in settings to enable live search. Showing demo results instead.';
-    renderFoodResults(SAMPLE_RESULTS, true);
-    return;
-  }
-
-  const endpoint = new URL('https://api.edamam.com/api/food-database/v2/parser');
-  endpoint.searchParams.set('app_id', edamamAppId);
-  endpoint.searchParams.set('app_key', edamamAppKey);
-  endpoint.searchParams.set('ingr', query);
-  endpoint.searchParams.set('nutrition-type', 'logging');
-  endpoint.searchParams.set('category', 'generic-foods');
-  endpoint.searchParams.set('health', 'keto-friendly');
+  const endpoint = new URL('https://world.openfoodfacts.org/cgi/search.pl');
+  endpoint.searchParams.set('search_terms', query);
+  endpoint.searchParams.set('search_simple', '1');
+  endpoint.searchParams.set('action', 'process');
+  endpoint.searchParams.set('json', '1');
+  endpoint.searchParams.set('page_size', '20');
 
   try {
-    const response = await fetch(endpoint.toString());
+    const response = await fetch(endpoint.toString(), { cache: 'no-store' });
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      throw new Error(`HTTP ${response.status}`);
     }
     const payload = await response.json();
-    const hints = Array.isArray(payload.hints) ? payload.hints : [];
-    if (!hints.length) {
-      elements.foodSearchStatus.textContent = 'No results found. Try another search or quick add manually.';
+    const products = Array.isArray(payload.products) ? payload.products : [];
+    const results = products
+      .map((product) => simplifyOpenFoodFactsProduct(product))
+      .filter(Boolean);
+    if (!results.length) {
+      elements.foodSearchStatus.textContent = 'No matches on OpenFoodFacts. Try another search or quick add manually.';
       return;
     }
-    const results = hints.slice(0, 20).map((hint) => simplifyEdamamHint(hint));
     renderFoodResults(results, false);
-    elements.foodSearchStatus.textContent = `Showing ${results.length} result${results.length === 1 ? '' : 's'}.`;
+    elements.foodSearchStatus.textContent = `Showing ${results.length} result${results.length === 1 ? '' : 's'} from OpenFoodFacts.`;
   } catch (error) {
     console.warn('Food search failed', error);
-    elements.foodSearchStatus.innerHTML = 'Unable to reach Edamam right now. Showing demo results instead.';
+    elements.foodSearchStatus.textContent = 'OpenFoodFacts unavailable. Showing demo foods instead.';
     renderFoodResults(SAMPLE_RESULTS, true);
   }
 }
 
-function simplifyEdamamHint(hint) {
-  const food = hint.food || {};
-  const nutrients = food.nutrients || {};
-  const serving = hint.measures && hint.measures[0] ? {
-    quantity: hint.measures[0].qty || 1,
-    unit: hint.measures[0].label || hint.measures[0].uri?.split('#').pop() || 'serving',
-  } : {
-    quantity: 1,
-    unit: food.measure || 'serving',
-  };
+function simplifyOpenFoodFactsProduct(product) {
+  if (!product) return null;
+  const label = product.product_name || product.generic_name || product.brands || product.ingredients_text || 'Food item';
+  const brand = product.brands ? product.brands.split(',')[0].trim() : (product.manufacturing_places || 'OpenFoodFacts');
+  const nutriments = product.nutriments || {};
+
+  const calories = extractKcal(nutriments);
+  const protein = extractMacro(nutriments, 'proteins');
+  const carbs = extractMacro(nutriments, 'carbohydrates');
+  const fat = extractMacro(nutriments, 'fat');
+
+  const serving = parseServing(product);
+
   return {
-    label: food.label || 'Food item',
-    brand: food.brand ?? food.category ?? 'Edamam',
-    calories: nutrients.ENERC_KCAL || 0,
-    protein: nutrients.PROCNT || 0,
-    carbs: nutrients.CHOCDF || 0,
-    fat: nutrients.FAT || 0,
+    label,
+    brand,
+    calories,
+    protein,
+    carbs,
+    fat,
     serving,
+    source: 'openfoodfacts',
+  };
+}
+
+function extractKcal(nutriments) {
+  const kcalKeys = ['energy-kcal_serving', 'energy-kcal_100g', 'energy-kcal_value', 'energy-kcal'];
+  const kJKeys = ['energy_serving', 'energy_100g', 'energy'];
+  let value = firstNumeric(nutriments, kcalKeys);
+  if (value !== null) return Math.round(value);
+  const kJ = firstNumeric(nutriments, kJKeys);
+  if (kJ !== null) {
+    return Math.round(kJ / 4.184);
+  }
+  return 0;
+}
+
+function extractMacro(nutriments, key) {
+  const value = firstNumeric(nutriments, [`${key}_serving`, `${key}_100g`, key]);
+  return value !== null ? roundToOne(value) : 0;
+}
+
+function firstNumeric(object, keys) {
+  for (const key of keys) {
+    if (!Object.prototype.hasOwnProperty.call(object, key)) continue;
+    const value = Number.parseFloat(object[key]);
+    if (Number.isFinite(value)) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function parseServing(product) {
+  const quantityValue = Number.parseFloat(product.serving_quantity);
+  const servingSize = product.serving_size;
+  if (Number.isFinite(quantityValue) && product.serving_quantity_unit) {
+    return {
+      quantity: roundToOne(quantityValue),
+      unit: product.serving_quantity_unit,
+    };
+  }
+  if (servingSize && typeof servingSize === 'string') {
+    const match = servingSize.match(/([\d.,]+)\s*([a-zA-Z]+)/);
+    if (match) {
+      const quantity = Number.parseFloat(match[1].replace(',', '.'));
+      if (Number.isFinite(quantity)) {
+        return {
+          quantity: roundToOne(quantity),
+          unit: match[2],
+        };
+      }
+    }
+    return {
+      quantity: 1,
+      unit: servingSize.trim(),
+    };
+  }
+  return {
+    quantity: 1,
+    unit: 'serving',
   };
 }
 
@@ -1088,7 +1192,7 @@ function renderFoodResults(results, isFallback) {
             <span class="pill">C ${Math.round(result.carbs)}g</span>
             <span class="pill">F ${Math.round(result.fat)}g</span>
           </div>
-          <p class="result-item__meta">${result.serving.quantity} ${result.serving.unit}</p>
+          <p class="result-item__meta">${result.serving.quantity} ${sanitize(result.serving.unit)}</p>
         </div>
         <div class="result-item__actions">
           <label class="form__field">
@@ -1139,7 +1243,7 @@ function logFoodFromResult(result, servings) {
       quantity: roundToOne(result.serving.quantity * multiplier),
       unit: result.serving.unit,
     },
-    source: 'edamam',
+    source: result.source || 'openfoodfacts',
   };
   addMealEntry(state.activeMeal, entry);
   elements.foodSearchStatus.textContent = `Logged ${entry.label} to ${capitalize(state.activeMeal)}.`;
@@ -1201,14 +1305,11 @@ function closeDrawer(id) {
 }
 
 function populateSettingsForm() {
-  const { goals, api } = state.settings;
+  const { goals } = state.settings;
   elements.goalCaloriesInput.value = goals.calories;
   elements.goalCarbsInput.value = goals.carbs;
   elements.goalProteinInput.value = goals.protein;
   elements.goalFatInput.value = goals.fat;
-  elements.apiAppIdInput.value = api.edamamAppId || '';
-  elements.apiAppKeyInput.value = api.edamamAppKey || '';
-  elements.apiWorkoutEndpointInput.value = api.workoutEndpoint || '';
 }
 
 function saveSettingsFromForm() {
@@ -1217,15 +1318,9 @@ function saveSettingsFromForm() {
   const protein = Number.parseInt(elements.goalProteinInput.value, 10) || DEFAULT_SETTINGS.goals.protein;
   const fat = Number.parseInt(elements.goalFatInput.value, 10) || DEFAULT_SETTINGS.goals.fat;
   state.settings.goals = { calories, carbs, protein, fat };
-  state.settings.api = {
-    edamamAppId: elements.apiAppIdInput.value.trim(),
-    edamamAppKey: elements.apiAppKeyInput.value.trim(),
-    workoutEndpoint: elements.apiWorkoutEndpointInput.value.trim(),
-  };
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
   closeDrawer('settingsDrawer');
   renderSummary();
-  loadWorkoutLibrary(true);
 }
 
 function loadSettings() {
@@ -1239,11 +1334,6 @@ function loadSettings() {
         carbs: parsed?.goals?.carbs ?? DEFAULT_SETTINGS.goals.carbs,
         protein: parsed?.goals?.protein ?? DEFAULT_SETTINGS.goals.protein,
         fat: parsed?.goals?.fat ?? DEFAULT_SETTINGS.goals.fat,
-      },
-      api: {
-        edamamAppId: parsed?.api?.edamamAppId ?? '',
-        edamamAppKey: parsed?.api?.edamamAppKey ?? '',
-        workoutEndpoint: parsed?.api?.workoutEndpoint ?? '',
       },
     };
   } catch (error) {
