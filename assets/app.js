@@ -689,9 +689,16 @@ async function loadWorkoutLibrary(forceRefresh = false) {
   }
 
   const normalized = items.map((item, index) => normalizeWorkout(item, index));
-  state.workoutLibrary.items = normalized;
-  state.workoutLibrary.map = new Map(normalized.map((item) => [item.id, item]));
-  const categories = Array.from(new Set(normalized.map((item) => item.category || 'Other'))).sort();
+  const combined = [...normalized];
+  DEFAULT_WORKOUT_LIBRARY.forEach((fallback) => {
+    if (!combined.some((workout) => workout.id === fallback.id)) {
+      combined.push({ ...fallback, source: fallback.source || 'preset' });
+    }
+  });
+
+  state.workoutLibrary.items = combined;
+  state.workoutLibrary.map = new Map(combined.map((item) => [item.id, item]));
+  const categories = Array.from(new Set(combined.map((item) => item.category || 'Other'))).sort();
   state.workoutLibrary.categories = ['All', ...categories];
   if (!state.workoutLibrary.categories.includes(state.workoutLibrary.category)) {
     state.workoutLibrary.category = 'All';
@@ -745,14 +752,15 @@ function prepareWgerExercise(exercise) {
     caloriesPerHour: preset.caloriesPerHour,
     defaultDuration: preset.defaultDuration,
     description,
+    source: 'wger',
   };
 }
 
 function mapWgerCategory(name) {
   const normalized = (name || '').toLowerCase();
-  if (['cardio', 'plyometrics', 'aerobics'].includes(normalized)) return 'Cardio';
-  if (['stretching', 'yoga', 'pilates'].includes(normalized)) return 'Mind & Body';
-  if (['rehabilitation', 'mobility'].includes(normalized)) return 'Mobility';
+  if (normalized.includes('cardio') || normalized.includes('aerobic') || normalized.includes('conditioning')) return 'Cardio';
+  if (normalized.includes('mobility') || normalized.includes('stretch') || normalized.includes('rehab')) return 'Mobility';
+  if (normalized.includes('yoga') || normalized.includes('pilates') || normalized.includes('mind')) return 'Mind & Body';
   return 'Strength';
 }
 
@@ -847,7 +855,7 @@ function renderWorkoutEntry(workout) {
   if (workout.category) detailParts.push(sanitize(workout.category));
   if (workout.intensity) detailParts.push(`${sanitize(workout.intensity)} intensity`);
   if (workout.source) {
-    const sourceLabel = workout.source === 'library' ? 'Library' : capitalize(workout.source);
+    const sourceLabel = workout.source === 'library' ? 'Library' : workout.source === 'wger' ? 'wger' : capitalize(workout.source);
     detailParts.push(sanitize(sourceLabel));
   }
   li.innerHTML = `
