@@ -262,6 +262,11 @@ const WORKOUT_CATEGORY_PRESETS = {
   Mobility: { met: 3, caloriesPerHour: 230, intensity: 'Light', defaultDuration: 30 },
 };
 
+const WORKOUT_REMOTE_SOURCES = [
+  'https://raw.githubusercontent.com/federod/FitTracker/main/assets/workouts.json',
+  'https://raw.githubusercontent.com/wrkout/exercises.json/master/exercises.json',
+];
+
 const elements = {
   meals: {},
   macros: {},
@@ -679,20 +684,36 @@ async function loadWorkoutLibrary(forceRefresh = false) {
   }
 
   let items = null;
-  try {
-    items = await fetchWgerExercises();
-    state.workoutLibrary.status = 'ready';
-  } catch (error) {
-    console.warn('Workout library fetch failed', error);
-    items = DEFAULT_WORKOUT_LIBRARY;
-    state.workoutLibrary.status = 'fallback';
+  for (const url of WORKOUT_REMOTE_SOURCES) {
+    try {
+      const data = await fetchWorkoutData(url);
+      const extracted = extractWorkoutArray(data);
+      if (extracted.length) {
+        items = extracted;
+        state.workoutLibrary.status = 'ready';
+        break;
+      }
+    } catch (error) {
+      console.warn('Workout library fetch failed for', url, error);
+    }
+  }
+
+  if (!items) {
+    try {
+      items = await fetchWgerExercises();
+      state.workoutLibrary.status = 'ready';
+    } catch (error) {
+      console.warn('Fallback to preset workouts', error);
+      items = DEFAULT_WORKOUT_LIBRARY;
+      state.workoutLibrary.status = 'fallback';
+    }
   }
 
   const normalized = items.map((item, index) => normalizeWorkout(item, index));
   const combined = [...normalized];
-  DEFAULT_WORKOUT_LIBRARY.forEach((fallback) => {
+  DEFAULT_WORKOUT_LIBRARY.forEach((fallback, idx) => {
     if (!combined.some((workout) => workout.id === fallback.id)) {
-      combined.push({ ...fallback, source: fallback.source || 'preset' });
+      combined.push(normalizeWorkout({ ...fallback, source: 'preset' }, normalized.length + idx));
     }
   });
 
@@ -705,6 +726,27 @@ async function loadWorkoutLibrary(forceRefresh = false) {
   }
   renderWorkoutFilters();
   renderWorkoutLibrary();
+}
+
+async function fetchWorkoutData(url) {
+  const response = await fetch(url, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    console.warn('Unable to parse workout source JSON', error);
+    return [];
+  }
+}
+
+function extractWorkoutArray(data) {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data.exercises)) return data.exercises;
+  if (Array.isArray(data.results)) return data.results;
+  if (Array.isArray(data.data)) return data.data;
+  return [];
 }
 
 async function fetchWgerExercises() {
@@ -731,6 +773,79 @@ async function fetchWgerExercises() {
   return workouts;
 }
 
+function resolveCategory(entry) {
+  const candidates = [];
+  if (entry.category) candidates.push(entry.category);
+  if (entry.type) candidates.push(entry.type);
+  if (entry.bodyPart) candidates.push(entry.bodyPart);
+  if (entry.muscle) candidates.push(entry.muscle);
+  if (entry.target) candidates.push(entry.target);
+  if (Array.isArray(entry.primaryMuscles)) candidates.push(entry.primaryMuscles.join(', '));
+  if (Array.isArray(entry.muscles)) candidates.push(entry.muscles.join(', '));
+
+  const context = `${candidates.join(' ')} ${(entry.name || '')} ${(entry.title || '')}`.toLowerCase();
+
+  const cardioKeywords = ['cardio', 'aerobic', 'conditioning', 'run', 'cycle', 'bike', 'ride', 'row', 'jump', 'walk', 'boxing', 'kick', 'swim', 'stair', 'hiit', 'sprint'];
+  const mobilityKeywords = ['mobility', 'stretch', 'rehab', 'rehabilitation', 'flexibility', 'therapy'];
+  const mindKeywords = ['yoga', 'pilates', 'mind', 'balance'];
+
+  if (cardioKeywords.some((kw) => context.includes(kw))) return 'Cardio';
+  if (mobilityKeywords.some((kw) => context.includes(kw))) return 'Mobility';
+  if (mindKeywords.some((kw) => context.includes(kw))) return 'Mind & Body';
+  return 'Strength';
+}
+
+function buildDescription(entry) {
+  const segments = [];
+  const textFields = [];
+
+  if (entry.description) textFields.push(entry.description);
+  if (entry.details) textFields.push(entry.details);
+  if (entry.summary) textFields.push(entry.summary);
+  if (Array.isArray(entry.instructions)) textFields.push(entry.instructions.join(' '));
+  if (Array.isArray(entry.steps)) textFields.push(entry.steps.join(' '));
+
+  textFields.forEach((value) => {
+    if (!value) return;
+    segments.push(stripHtml(value));
+  });
+
+  const muscles = [];
+  const appendMuscles = (list) => {
+    if (!list) return;
+    if (Array.isArray(list)) {
+      list.forEach((item) => {
+        if (typeof item === 'string') muscles.push(item);
+        else if (item && item.name) muscles.push(item.name);
+      });
+    } else if (typeof list === 'string') {
+      muscles.push(list);
+    }
+  };
+  appendMuscles(entry.muscles);
+  appendMuscles(entry.primaryMuscles);
+  appendMuscles(entry.secondaryMuscles);
+  appendMuscles(entry.secondary_muscles);
+  if (muscles.length) {
+    segments.push(`Muscles: ${Array.from(new Set(muscles)).join(', ')}`);
+  }
+
+  const equipments = [];
+  if (Array.isArray(entry.equipment)) {
+    entry.equipment.forEach((item) => {
+      if (typeof item === 'string') equipments.push(item);
+      else if (item && item.name) equipments.push(item.name);
+    });
+  } else if (typeof entry.equipment === 'string') {
+    equipments.push(entry.equipment);
+  }
+  if (equipments.length) {
+    segments.push(`Equipment: ${Array.from(new Set(equipments)).join(', ')}`);
+  }
+
+  return segments.join(' ').replace(/\s+/g, ' ').trim();
+}
+
 function prepareWgerExercise(exercise) {
   const rawCategory = exercise.category?.name || 'Other';
   const category = mapWgerCategory(rawCategory);
@@ -738,11 +853,12 @@ function prepareWgerExercise(exercise) {
   const equipmentNames = Array.isArray(exercise.equipment)
     ? exercise.equipment.map((item) => item?.name).filter(Boolean)
     : [];
-  const descriptionParts = [];
-  if (exercise.description) descriptionParts.push(stripHtml(exercise.description));
-  if (exercise.description_plain) descriptionParts.push(stripHtml(exercise.description_plain));
-  if (equipmentNames.length) descriptionParts.push(`Equipment: ${equipmentNames.join(', ')}`);
-  const description = descriptionParts.join(' ').trim();
+  const description = buildDescription({
+    description: exercise.description || exercise.description_plain,
+    muscles: exercise.muscles?.map((m) => m?.name).filter(Boolean),
+    secondaryMuscles: exercise.muscles_secondary?.map((m) => m?.name).filter(Boolean),
+    equipment: equipmentNames,
+  });
   return {
     id: `wger_${exercise.id}`,
     name: exercise.name.trim(),
@@ -771,28 +887,41 @@ function stripHtml(value) {
 
 function normalizeWorkout(entry, index) {
   const id = entry.id || `workout_${index}`;
-  const met = Number.parseFloat(entry.met) || null;
+  const category = resolveCategory(entry);
+  const preset = WORKOUT_CATEGORY_PRESETS[category] || WORKOUT_CATEGORY_PRESETS.Strength;
+  const name = entry.name || entry.title || entry.exercise_name || 'Workout';
+
+  const met = Number.isFinite(Number.parseFloat(entry.met)) ? Number.parseFloat(entry.met) : preset.met;
   let caloriesPerHour = Number.parseFloat(entry.caloriesPerHour);
   if (!Number.isFinite(caloriesPerHour) || caloriesPerHour <= 0) {
-    if (met) {
-      // approximate using 82kg (180lb) baseline
+    if (Number.isFinite(Number.parseFloat(entry.calories))) {
+      caloriesPerHour = Math.round((Number.parseFloat(entry.calories) / Math.max(Number.parseFloat(entry.durationMinutes) || preset.defaultDuration, 1)) * 60);
+    } else if (met) {
       caloriesPerHour = Math.round((met * 3.5 * 82) / 200 * 60);
     } else {
-      caloriesPerHour = 400;
+      caloriesPerHour = preset.caloriesPerHour;
     }
   } else {
     caloriesPerHour = Math.round(caloriesPerHour);
   }
+
   const defaultDuration = Number.parseFloat(entry.defaultDuration);
+  const duration = Number.isFinite(defaultDuration) && defaultDuration > 0 ? Math.round(defaultDuration) : preset.defaultDuration;
+
+  const intensity = entry.intensity || preset.intensity;
+
+  const description = buildDescription(entry);
+
   return {
     id,
-    name: entry.name || 'Workout',
-    category: entry.category || 'Other',
-    intensity: entry.intensity || 'Moderate',
+    name: name.trim(),
+    category,
+    intensity,
     met,
     caloriesPerHour,
-    defaultDuration: Number.isFinite(defaultDuration) && defaultDuration > 0 ? Math.round(defaultDuration) : 30,
-    description: entry.description || '',
+    defaultDuration: duration,
+    description,
+    source: entry.source || 'remote',
   };
 }
 
