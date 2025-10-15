@@ -1,0 +1,182 @@
+[
+  {
+    "id": "run_outdoor",
+    "name": "Outdoor Run",
+    "category": "Cardio",
+    "intensity": "High",
+    "met": 9.8,
+    "caloriesPerHour": 750,
+    "defaultDuration": 45,
+    "description": "Steady outdoor run on varied terrain."
+  },
+  {
+    "id": "run_indoor",
+    "name": "Treadmill Run",
+    "category": "Cardio",
+    "intensity": "Moderate",
+    "met": 8.5,
+    "caloriesPerHour": 680,
+    "defaultDuration": 40,
+    "description": "Indoor treadmill session at moderate pace."
+  },
+  {
+    "id": "cycling_outdoor",
+    "name": "Outdoor Cycling",
+    "category": "Cardio",
+    "intensity": "High",
+    "met": 8.0,
+    "caloriesPerHour": 620,
+    "defaultDuration": 60,
+    "description": "Road cycling with rolling hills."
+  },
+  {
+    "id": "cycling_indoor",
+    "name": "Indoor Cycling",
+    "category": "Cardio",
+    "intensity": "High",
+    "met": 7.5,
+    "caloriesPerHour": 590,
+    "defaultDuration": 45,
+    "description": "Spin bike intervals or steady ride."
+  },
+  {
+    "id": "hiit",
+    "name": "HIIT",
+    "category": "Cardio",
+    "intensity": "Very High",
+    "met": 10.0,
+    "caloriesPerHour": 820,
+    "defaultDuration": 30,
+    "description": "High-intensity interval training with minimal rest."
+  },
+  {
+    "id": "strength_full",
+    "name": "Strength Training",
+    "category": "Strength",
+    "intensity": "Moderate",
+    "met": 6.0,
+    "caloriesPerHour": 450,
+    "defaultDuration": 50,
+    "description": "Traditional lifting session with compound movements."
+  },
+  {
+    "id": "strength_functional",
+    "name": "Functional Strength",
+    "category": "Strength",
+    "intensity": "Moderate",
+    "met": 6.5,
+    "caloriesPerHour": 480,
+    "defaultDuration": 45,
+    "description": "Circuit-based strength with sled pushes, kettlebells, carries."
+  },
+  {
+    "id": "core",
+    "name": "Core & Mobility",
+    "category": "Mind & Body",
+    "intensity": "Light",
+    "met": 3.0,
+    "caloriesPerHour": 220,
+    "defaultDuration": 30,
+    "description": "Focused core work with mobility flows."
+  },
+  {
+    "id": "yoga_power",
+    "name": "Power Yoga",
+    "category": "Mind & Body",
+    "intensity": "Moderate",
+    "met": 4.2,
+    "caloriesPerHour": 320,
+    "defaultDuration": 60,
+    "description": "Vinyasa flow emphasizing strength and flexibility."
+  },
+  {
+    "id": "pilates",
+    "name": "Pilates Reformer/Mat",
+    "category": "Mind & Body",
+    "intensity": "Light",
+    "met": 3.5,
+    "caloriesPerHour": 260,
+    "defaultDuration": 50,
+    "description": "Pilates session focusing on control and alignment."
+  },
+  {
+    "id": "rowing",
+    "name": "Rowing Machine",
+    "category": "Cardio",
+    "intensity": "High",
+    "met": 8.5,
+    "caloriesPerHour": 700,
+    "defaultDuration": 30,
+    "description": "Intervals or steady state rower workout."
+  },
+  {
+    "id": "swim",
+    "name": "Lap Swimming",
+    "category": "Cardio",
+    "intensity": "High",
+    "met": 8.3,
+    "caloriesPerHour": 650,
+    "defaultDuration": 40,
+    "description": "Continuous freestyle swimming in pool."
+  },
+  {
+    "id": "stair_climb",
+    "name": "Stair Climber",
+    "category": "Cardio",
+    "intensity": "High",
+    "met": 8.8,
+    "caloriesPerHour": 720,
+    "defaultDuration": 30,
+    "description": "Stair mill session maintaining consistent pace."
+  },
+  {
+    "id": "boxing",
+    "name": "Boxing / Kickboxing",
+    "category": "Cardio",
+    "intensity": "Very High",
+    "met": 9.5,
+    "caloriesPerHour": 780,
+    "defaultDuration": 45,
+    "description": "Heavy bag or sparring inspired workout."
+  },
+  {
+    "id": "jumprope",
+    "name": "Jump Rope",
+    "category": "Cardio",
+    "intensity": "High",
+    "met": 11.0,
+    "caloriesPerHour": 900,
+    "defaultDuration": 20,
+    "description": "Intervals or continuous jump rope session."
+  },
+  {
+    "id": "walk_outdoor",
+    "name": "Outdoor Walk",
+    "category": "Cardio",
+    "intensity": "Light",
+    "met": 3.5,
+    "caloriesPerHour": 250,
+    "defaultDuration": 45,
+    "description": "Brisk walk outside."
+  },
+  {
+    "id": "walk_indoor",
+    "name": "Indoor Walk",
+    "category": "Cardio",
+    "intensity": "Light",
+    "met": 3.0,
+    "caloriesPerHour": 220,
+    "defaultDuration": 40,
+    "description": "Treadmill or track walking session."
+  },
+  {
+    "id": "hiking",
+    "name": "Hiking",
+    "category": "Cardio",
+    "intensity": "Moderate",
+    "met": 6.5,
+    "caloriesPerHour": 500,
+    "defaultDuration": 90,
+    "description": "Outdoor hike with mixed elevation."
+  }
+]

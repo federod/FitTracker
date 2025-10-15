@@ -1,13 +1,440 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Federico — Fitness Tracker</title>
-    <meta name="theme-color" content="#0f172a" />
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FitPal — Personal Nutrition & Training Log</title>
+  <meta name="theme-color" content="#0b1120" />
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="top-bar" aria-label="Day navigation">
+      <button id="prevDay" class="icon-button" aria-label="Previous day">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m15 18-6-6 6-6"></path>
+        </svg>
+      </button>
+      <div class="top-bar__center">
+        <span id="topBarDay" class="top-bar__day">Today</span>
+        <span id="topBarDate" class="top-bar__date">Monday, Jan 1</span>
+      </div>
+      <button id="nextDay" class="icon-button" aria-label="Next day">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m9 18 6-6-6-6"></path>
+        </svg>
+      </button>
+    </header>
+
+    <button id="jumpToday" class="chip chip--inline" type="button">Back to today</button>
+
+    <section class="card card--summary" id="summaryCard">
+      <header class="card__header">
+        <div class="card__leading">
+          <span class="card__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z"></path>
+              <path d="m9 12 2 2 4-4"></path>
+            </svg>
+          </span>
+          <div>
+            <h1 class="card__title">Daily Summary</h1>
+            <p class="card__subtitle" id="summarySubtitle">Track nutrition, workouts &amp; macros</p>
+          </div>
+        </div>
+        <button id="openSettings" class="icon-button icon-button--ghost" type="button" aria-label="Open settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.06A1.65 1.65 0 0 0 9 4.6V4a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.06a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.06a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path>
+          </svg>
+        </button>
+      </header>
+
+      <div class="calorie-board" role="group" aria-label="Calories summary">
+        <div class="calorie-board__row">
+          <span>Goal</span>
+          <strong id="calGoal">0</strong>
+        </div>
+        <div class="calorie-board__row">
+          <span>Food</span>
+          <strong id="calFood">0</strong>
+        </div>
+        <div class="calorie-board__row">
+          <span>Exercise</span>
+          <strong id="calExercise">0</strong>
+        </div>
+        <div class="calorie-board__row calorie-board__row--net">
+          <span>Remaining</span>
+          <strong id="calRemaining">0</strong>
+        </div>
+      </div>
+
+      <div class="calorie-progress" aria-hidden="true">
+        <div class="calorie-progress__bar">
+          <div class="calorie-progress__fill" id="calorieProgressFill"></div>
+        </div>
+        <div class="calorie-progress__label" id="calorieProgressText">0 / 0 kcal</div>
+      </div>
+
+      <div class="macro-grid" role="group" aria-label="Macronutrient summary">
+        <div class="macro" data-macro="carbs">
+          <span class="macro__label">Carbs</span>
+          <strong class="macro__value" id="macroCarbs">0g / 0g</strong>
+          <div class="macro__progress"><span id="macroCarbsFill"></span></div>
+        </div>
+        <div class="macro" data-macro="protein">
+          <span class="macro__label">Protein</span>
+          <strong class="macro__value" id="macroProtein">0g / 0g</strong>
+          <div class="macro__progress"><span id="macroProteinFill"></span></div>
+        </div>
+        <div class="macro" data-macro="fat">
+          <span class="macro__label">Fat</span>
+          <strong class="macro__value" id="macroFat">0g / 0g</strong>
+          <div class="macro__progress"><span id="macroFatFill"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card card--meal" data-meal="breakfast">
+      <header class="card__header">
+        <div class="card__leading">
+          <span class="card__icon card__icon--sunrise" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v4"></path>
+              <path d="m4.93 4.93 2.83 2.83"></path>
+              <path d="M2 12h4"></path>
+              <path d="M12 20a6 6 0 0 0 0-12 6 6 0 0 0 0 12Z"></path>
+            </svg>
+          </span>
+          <div>
+            <h2 class="card__title">Breakfast</h2>
+            <p class="card__subtitle" id="meal-breakfast-subtotal">0 kcal</p>
+          </div>
+        </div>
+        <button class="chip" data-meal-add="breakfast" type="button">+ Add food</button>
+      </header>
+      <ul class="log-list" id="meal-breakfast-list" aria-live="polite"></ul>
+      <button class="link-button" data-meal-quick="breakfast" type="button">Quick add calories</button>
+    </section>
+
+    <section class="card card--meal" data-meal="lunch">
+      <header class="card__header">
+        <div class="card__leading">
+          <span class="card__icon card__icon--sun" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path d="M12 2v2"></path>
+              <path d="M12 20v2"></path>
+              <path d="m4.93 4.93 1.41 1.41"></path>
+              <path d="m17.66 17.66 1.41 1.41"></path>
+              <path d="M2 12h2"></path>
+              <path d="M20 12h2"></path>
+              <path d="m6.34 17.66-1.41 1.41"></path>
+              <path d="m19.07 4.93-1.41 1.41"></path>
+            </svg>
+          </span>
+          <div>
+            <h2 class="card__title">Lunch</h2>
+            <p class="card__subtitle" id="meal-lunch-subtotal">0 kcal</p>
+          </div>
+        </div>
+        <button class="chip" data-meal-add="lunch" type="button">+ Add food</button>
+      </header>
+      <ul class="log-list" id="meal-lunch-list" aria-live="polite"></ul>
+      <button class="link-button" data-meal-quick="lunch" type="button">Quick add calories</button>
+    </section>
+
+    <section class="card card--meal" data-meal="dinner">
+      <header class="card__header">
+        <div class="card__leading">
+          <span class="card__icon card__icon--sunset" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v4"></path>
+              <path d="m4.93 8.93 2.83 2.83"></path>
+              <path d="M2 17h20"></path>
+              <path d="M5 21h14"></path>
+              <path d="M12 15a6 6 0 0 0 0-12"></path>
+            </svg>
+          </span>
+          <div>
+            <h2 class="card__title">Dinner</h2>
+            <p class="card__subtitle" id="meal-dinner-subtotal">0 kcal</p>
+          </div>
+        </div>
+        <button class="chip" data-meal-add="dinner" type="button">+ Add food</button>
+      </header>
+      <ul class="log-list" id="meal-dinner-list" aria-live="polite"></ul>
+      <button class="link-button" data-meal-quick="dinner" type="button">Quick add calories</button>
+    </section>
+
+    <section class="card card--meal" data-meal="snacks">
+      <header class="card__header">
+        <div class="card__leading">
+          <span class="card__icon card__icon--snack" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 10h16"></path>
+              <path d="M4 18h16"></path>
+              <path d="M10 6h4"></path>
+              <path d="M8 2h8"></path>
+              <path d="M5 10v8c0 1.1.9 2 2 2h10a2 2 0 0 0 2-2v-8"></path>
+            </svg>
+          </span>
+          <div>
+            <h2 class="card__title">Snacks</h2>
+            <p class="card__subtitle" id="meal-snacks-subtotal">0 kcal</p>
+          </div>
+        </div>
+        <button class="chip" data-meal-add="snacks" type="button">+ Add food</button>
+      </header>
+      <ul class="log-list" id="meal-snacks-list" aria-live="polite"></ul>
+      <button class="link-button" data-meal-quick="snacks" type="button">Quick add calories</button>
+    </section>
+
+    <section class="card card--workouts" id="workoutCard">
+      <header class="card__header">
+        <div class="card__leading">
+          <span class="card__icon card__icon--workout" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 12h4"></path>
+              <path d="M16 12h4"></path>
+              <path d="M5 9v6"></path>
+              <path d="M19 9v6"></path>
+              <path d="M8 5v14"></path>
+              <path d="M16 5v14"></path>
+              <rect x="10" y="9" width="4" height="6" rx="1"></rect>
+            </svg>
+          </span>
+          <div>
+            <h2 class="card__title">Workouts</h2>
+            <p class="card__subtitle" id="workoutSubtotal">0 kcal burned</p>
+          </div>
+        </div>
+        <div class="card__actions">
+          <button id="toggleWorkoutForm" class="chip" type="button">Quick log</button>
+          <button id="openWorkoutLibrary" class="chip chip--ghost" type="button">Browse library</button>
+        </div>
+      </header>
+
+      <form id="workoutForm" class="form form--workout" hidden>
+        <div class="form__row">
+          <label class="form__field">
+            <span>Workout</span>
+            <input type="text" id="workoutName" name="name" placeholder="e.g. Strength session" required />
+          </label>
+        </div>
+        <div class="form__row form__row--split">
+          <label class="form__field">
+            <span>Duration (min)</span>
+            <input type="number" id="workoutDuration" name="duration" min="1" step="1" placeholder="45" required />
+          </label>
+          <label class="form__field">
+            <span>Calories</span>
+            <input type="number" id="workoutCalories" name="calories" min="0" step="1" placeholder="450" required />
+          </label>
+        </div>
+        <button class="primary-button" type="submit">Log workout</button>
+      </form>
+
+      <ul class="log-list" id="workoutList" aria-live="polite"></ul>
+    </section>
+
+    <section class="card card--notes">
+      <header class="card__header">
+        <div class="card__leading">
+          <span class="card__icon card__icon--note" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4a2 2 0 0 1 2-2h7.17a2 2 0 0 1 1.41.59l4.83 4.83a2 2 0 0 1 .59 1.41V20a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"></path>
+              <path d="M12 3v5h5"></path>
+            </svg>
+          </span>
+          <div>
+            <h2 class="card__title">Notes &amp; wins</h2>
+            <p class="card__subtitle">How did you feel today?</p>
+          </div>
+        </div>
+      </header>
+      <textarea id="dailyNotes" rows="4" placeholder="Recovery, mood, PRs, anything worth remembering..."></textarea>
+      <div class="notes-actions">
+        <button id="saveNotes" class="primary-button" type="button">Save note</button>
+        <button id="clearNotes" class="secondary-button" type="button">Clear</button>
+      </div>
+      <p class="notes-status" id="notesStatus">No notes yet.</p>
+    </section>
+  </main>
+
+  <div class="drawer" id="foodDrawer" hidden aria-hidden="true">
+    <div class="drawer__backdrop" data-drawer-close="foodDrawer"></div>
+    <section class="drawer__panel" aria-labelledby="foodDrawerTitle">
+      <header class="drawer__header">
+        <div>
+          <h2 id="foodDrawerTitle">Add food</h2>
+          <p class="drawer__subtitle" id="foodDrawerSubtitle">Search the Edamam database or quick add calories.</p>
+        </div>
+        <button class="icon-button" type="button" data-drawer-close="foodDrawer" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m6 6 12 12"></path>
+            <path d="M6 18 18 6"></path>
+          </svg>
+        </button>
+      </header>
+
+      <form id="foodSearchForm" class="form form--search" novalidate>
+        <label class="form__field">
+          <span>Search foods</span>
+          <input type="search" id="foodSearchInput" placeholder="e.g. grilled chicken, almonds, whey protein" required />
+        </label>
+        <button class="primary-button" type="submit">Search</button>
+      </form>
+
+      <p class="drawer__status" id="foodSearchStatus">Enter a food to begin.</p>
+      <ul class="result-list" id="foodResults"></ul>
+
+      <details class="quick-add" id="quickAddSection">
+        <summary>Quick add manually</summary>
+        <form id="quickAddForm" class="form form--compact" novalidate>
+          <div class="form__row">
+            <label class="form__field">
+              <span>Food name</span>
+              <input type="text" id="quickAddName" placeholder="Custom entry" required />
+            </label>
+          </div>
+          <div class="form__row form__row--split">
+            <label class="form__field">
+              <span>Calories</span>
+              <input type="number" id="quickAddCalories" min="0" step="1" placeholder="200" required />
+            </label>
+            <label class="form__field">
+              <span>Protein (g)</span>
+              <input type="number" id="quickAddProtein" min="0" step="0.1" placeholder="20" />
+            </label>
+          </div>
+          <div class="form__row form__row--split">
+            <label class="form__field">
+              <span>Carbs (g)</span>
+              <input type="number" id="quickAddCarbs" min="0" step="0.1" placeholder="15" />
+            </label>
+            <label class="form__field">
+              <span>Fat (g)</span>
+              <input type="number" id="quickAddFat" min="0" step="0.1" placeholder="8" />
+            </label>
+          </div>
+          <button class="primary-button" type="submit">Add quick entry</button>
+        </form>
+      </details>
+    </section>
+  </div>
+
+  <div class="drawer" id="workoutDrawer" hidden aria-hidden="true">
+    <div class="drawer__backdrop" data-drawer-close="workoutDrawer"></div>
+    <section class="drawer__panel" aria-labelledby="workoutDrawerTitle">
+      <header class="drawer__header">
+        <div>
+          <h2 id="workoutDrawerTitle">Workout library</h2>
+          <p class="drawer__subtitle">Apple-style categories with default burn rates. Adjust before logging.</p>
+        </div>
+        <button class="icon-button" type="button" data-drawer-close="workoutDrawer" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m6 6 12 12"></path>
+            <path d="M6 18 18 6"></path>
+          </svg>
+        </button>
+      </header>
+
+      <form id="workoutSearchForm" class="form form--search" novalidate>
+        <label class="form__field">
+          <span>Search workouts</span>
+          <input type="search" id="workoutSearchInput" placeholder="e.g. Outdoor run, HIIT, strength" />
+        </label>
+        <div class="pill-list" id="workoutCategoryFilters" role="tablist" aria-label="Filter by category"></div>
+      </form>
+
+      <p class="drawer__status" id="workoutSearchStatus">Loading workouts...</p>
+      <ul class="result-list" id="workoutResults"></ul>
+    </section>
+  </div>
+
+  <div class="drawer" id="settingsDrawer" hidden aria-hidden="true">
+    <div class="drawer__backdrop" data-drawer-close="settingsDrawer"></div>
+    <section class="drawer__panel" aria-labelledby="settingsDrawerTitle">
+      <header class="drawer__header">
+        <div>
+          <h2 id="settingsDrawerTitle">Settings &amp; goals</h2>
+          <p class="drawer__subtitle">Update calorie targets, macros, and Edamam API credentials.</p>
+        </div>
+        <button class="icon-button" type="button" data-drawer-close="settingsDrawer" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m6 6 12 12"></path>
+            <path d="M6 18 18 6"></path>
+          </svg>
+        </button>
+      </header>
+
+      <form id="settingsForm" class="form form--settings" novalidate>
+        <fieldset>
+          <legend>Calorie &amp; macro goals</legend>
+          <div class="form__row">
+            <label class="form__field">
+              <span>Calories (kcal)</span>
+              <input type="number" id="goalCaloriesInput" min="0" step="10" required />
+            </label>
+          </div>
+          <div class="form__row form__row--split">
+            <label class="form__field">
+              <span>Carbs (g)</span>
+              <input type="number" id="goalCarbsInput" min="0" step="1" required />
+            </label>
+            <label class="form__field">
+              <span>Protein (g)</span>
+              <input type="number" id="goalProteinInput" min="0" step="1" required />
+            </label>
+          </div>
+          <div class="form__row">
+            <label class="form__field">
+              <span>Fat (g)</span>
+              <input type="number" id="goalFatInput" min="0" step="1" required />
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Edamam Food Database API</legend>
+          <p class="form__help">
+            Generate credentials at <a href="https://developer.edamam.com/" target="_blank" rel="noreferrer">developer.edamam.com</a>.
+            Requests are made client-side; keys are stored locally in your browser.
+          </p>
+          <div class="form__row">
+            <label class="form__field">
+              <span>App ID</span>
+              <input type="text" id="apiAppIdInput" autocomplete="off" />
+            </label>
+          </div>
+          <div class="form__row">
+            <label class="form__field">
+              <span>App key</span>
+              <input type="password" id="apiAppKeyInput" autocomplete="off" />
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Workout library API</legend>
+          <p class="form__help">
+            Optional: point to a JSON API that returns an array of workout definitions.
+            Leave blank to use the built-in Apple-style catalogue.
+          </p>
+          <div class="form__row">
+            <label class="form__field">
+              <span>Endpoint URL</span>
+              <input type="url" id="apiWorkoutEndpointInput" placeholder="https://example.com/workouts" />
+            </label>
+          </div>
+        </fieldset>
+
+        <button class="primary-button" type="submit">Save settings</button>
+      </form>
+    </section>
+  </div>
+
+  <script type="module" src="assets/app.js"></script>
+</body>
 </html>
