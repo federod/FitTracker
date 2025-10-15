@@ -262,11 +262,6 @@ const WORKOUT_CATEGORY_PRESETS = {
   Mobility: { met: 3, caloriesPerHour: 230, intensity: 'Light', defaultDuration: 30 },
 };
 
-const WORKOUT_REMOTE_SOURCES = [
-  'https://raw.githubusercontent.com/federod/FitTracker/main/assets/workouts.json',
-  'https://raw.githubusercontent.com/wrkout/exercises.json/master/exercises.json',
-];
-
 const elements = {
   meals: {},
   macros: {},
@@ -684,29 +679,17 @@ async function loadWorkoutLibrary(forceRefresh = false) {
   }
 
   let items = null;
-  for (const url of WORKOUT_REMOTE_SOURCES) {
-    try {
-      const data = await fetchWorkoutData(url);
-      const extracted = extractWorkoutArray(data);
-      if (extracted.length) {
-        items = extracted;
-        state.workoutLibrary.status = 'ready';
-        break;
-      }
-    } catch (error) {
-      console.warn('Workout library fetch failed for', url, error);
-    }
-  }
-
-  if (!items) {
-    try {
-      items = await fetchWgerExercises();
-      state.workoutLibrary.status = 'ready';
-    } catch (error) {
-      console.warn('Fallback to preset workouts', error);
-      items = DEFAULT_WORKOUT_LIBRARY;
-      state.workoutLibrary.status = 'fallback';
-    }
+  try {
+    const response = await fetch('./assets/workouts.json', { cache: forceRefresh ? 'reload' : 'default' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    items = Array.isArray(data) ? data : Array.isArray(data?.exercises) ? data.exercises : [];
+    if (!items.length) throw new Error('Empty workout dataset');
+    state.workoutLibrary.status = 'ready';
+  } catch (error) {
+    console.warn('Local workout dataset unavailable, falling back to presets.', error);
+    items = DEFAULT_WORKOUT_LIBRARY;
+    state.workoutLibrary.status = 'fallback';
   }
 
   const normalized = items.map((item, index) => normalizeWorkout(item, index));
@@ -726,51 +709,6 @@ async function loadWorkoutLibrary(forceRefresh = false) {
   }
   renderWorkoutFilters();
   renderWorkoutLibrary();
-}
-
-async function fetchWorkoutData(url) {
-  const response = await fetch(url, { cache: 'no-store' });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const text = await response.text();
-  try {
-    return JSON.parse(text);
-  } catch (error) {
-    console.warn('Unable to parse workout source JSON', error);
-    return [];
-  }
-}
-
-function extractWorkoutArray(data) {
-  if (!data) return [];
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data.exercises)) return data.exercises;
-  if (Array.isArray(data.results)) return data.results;
-  if (Array.isArray(data.data)) return data.data;
-  return [];
-}
-
-async function fetchWgerExercises() {
-  const workouts = [];
-  let nextUrl = 'https://wger.de/api/v2/exerciseinfo/?language=2&limit=200&status=2';
-  const seen = new Set();
-  while (nextUrl && workouts.length < 500) {
-    const response = await fetch(nextUrl, { cache: 'no-store' });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const payload = await response.json();
-    const results = Array.isArray(payload.results) ? payload.results : [];
-    results.forEach((exercise) => {
-      if (!exercise || !exercise.name) return;
-      if (exercise.language !== 2) return;
-      if (seen.has(exercise.id)) return;
-      seen.add(exercise.id);
-      const prepared = prepareWgerExercise(exercise);
-      if (prepared) {
-        workouts.push(prepared);
-      }
-    });
-    nextUrl = payload.next;
-  }
-  return workouts;
 }
 
 function resolveCategory(entry) {
@@ -844,40 +782,6 @@ function buildDescription(entry) {
   }
 
   return segments.join(' ').replace(/\s+/g, ' ').trim();
-}
-
-function prepareWgerExercise(exercise) {
-  const rawCategory = exercise.category?.name || 'Other';
-  const category = mapWgerCategory(rawCategory);
-  const preset = WORKOUT_CATEGORY_PRESETS[category] || WORKOUT_CATEGORY_PRESETS.Strength;
-  const equipmentNames = Array.isArray(exercise.equipment)
-    ? exercise.equipment.map((item) => item?.name).filter(Boolean)
-    : [];
-  const description = buildDescription({
-    description: exercise.description || exercise.description_plain,
-    muscles: exercise.muscles?.map((m) => m?.name).filter(Boolean),
-    secondaryMuscles: exercise.muscles_secondary?.map((m) => m?.name).filter(Boolean),
-    equipment: equipmentNames,
-  });
-  return {
-    id: `wger_${exercise.id}`,
-    name: exercise.name.trim(),
-    category,
-    intensity: preset.intensity,
-    met: preset.met,
-    caloriesPerHour: preset.caloriesPerHour,
-    defaultDuration: preset.defaultDuration,
-    description,
-    source: 'wger',
-  };
-}
-
-function mapWgerCategory(name) {
-  const normalized = (name || '').toLowerCase();
-  if (normalized.includes('cardio') || normalized.includes('aerobic') || normalized.includes('conditioning')) return 'Cardio';
-  if (normalized.includes('mobility') || normalized.includes('stretch') || normalized.includes('rehab')) return 'Mobility';
-  if (normalized.includes('yoga') || normalized.includes('pilates') || normalized.includes('mind')) return 'Mind & Body';
-  return 'Strength';
 }
 
 function stripHtml(value) {
