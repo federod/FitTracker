@@ -117,6 +117,22 @@
     />
 
     <ProgressChart :entries="weightEntries" />
+
+    <CalorieSettings
+      :settings="calorieSettings"
+      :current-weight="currentWeight"
+      :status="calorieSettingsStatus"
+      @update-setting="updateCalorieSetting"
+      @save="handleSaveCalorieSettings"
+      @reset="handleResetCalorieSettings"
+    />
+
+    <CalorieTracker
+      :meals="dailyMeals"
+      :daily-target="dailyCalorieTarget"
+      @add-meal="handleAddMeal"
+      @delete-meal="handleDeleteMeal"
+    />
   </main>
 </template>
 
@@ -132,6 +148,8 @@ import SimpleChecklistCard from './components/SimpleChecklistCard.vue'
 import NotesCard from './components/NotesCard.vue'
 import WeightCard from './components/WeightCard.vue'
 import ProgressChart from './components/ProgressChart.vue'
+import CalorieSettings from './components/CalorieSettings.vue'
+import CalorieTracker from './components/CalorieTracker.vue'
 
 const {
   selectedDay,
@@ -149,6 +167,10 @@ const {
   getLatestWeightEntry,
   formatTime,
   formatRelative,
+  getCalorieSettings,
+  saveCalorieSettings,
+  getMealsForDay,
+  saveMealsForDay,
   resetDay,
   resetAll,
   noteKey,
@@ -166,6 +188,17 @@ const notesStatus = ref('No notes yet.')
 const weightInput = ref('')
 const lastWeighIn = ref('No weigh-ins saved yet.')
 const weightEntries = ref([])
+
+// Calorie tracking state
+const calorieSettings = ref({
+  height: null,
+  age: null,
+  sex: 'male',
+  activityLevel: '1.55',
+  goal: 'maintain'
+})
+const calorieSettingsStatus = ref('Configure your settings to start tracking.')
+const dailyMeals = ref([])
 
 // Computed
 const subtitle = computed(() => {
@@ -246,6 +279,39 @@ const nutritionItems = computed(() => [
   { id: 'meal2_cb', label: 'Meal 2: steak (1.0–1.2 lb) or 3–4 chicken thighs + 2–3 eggs + 2 tbsp butter', checked: checkboxStates.value.meal2_cb, disabled: false },
   { id: 'snack_cb', label: 'Snack: pork rinds (¼ bag) or 3 mozzarella sticks', checked: checkboxStates.value.snack_cb, disabled: false },
 ])
+
+const currentWeight = computed(() => {
+  const latest = getLatestWeightEntry()
+  return latest ? latest.value : null
+})
+
+const dailyCalorieTarget = computed(() => {
+  const { height, age, sex, activityLevel, goal } = calorieSettings.value
+  const weight = currentWeight.value
+
+  if (!height || !age || !weight) {
+    return null
+  }
+
+  // Calculate BMR using Mifflin-St Jeor Equation
+  let bmr
+  if (sex === 'male') {
+    bmr = (10 * weight * 0.453592) + (6.25 * height * 2.54) - (5 * age) + 5
+  } else {
+    bmr = (10 * weight * 0.453592) + (6.25 * height * 2.54) - (5 * age) - 161
+  }
+
+  // Calculate TDEE
+  const tdee = Math.round(bmr * parseFloat(activityLevel))
+
+  // Adjust based on goal
+  if (goal === 'lose') {
+    return tdee - 500
+  } else if (goal === 'gain') {
+    return tdee + 500
+  }
+  return tdee
+})
 
 // Methods
 function loadCheckboxes() {
@@ -355,6 +421,47 @@ function handleResetAll() {
   loadCheckboxes()
   loadNotes()
   loadWeight()
+  loadCalorieData()
+}
+
+// Calorie tracking methods
+function loadCalorieData() {
+  calorieSettings.value = getCalorieSettings()
+  dailyMeals.value = getMealsForDay(selectedDay.value)
+}
+
+function updateCalorieSetting(key, value) {
+  calorieSettings.value[key] = value
+  calorieSettingsStatus.value = 'Unsaved changes'
+}
+
+function handleSaveCalorieSettings() {
+  saveCalorieSettings(calorieSettings.value)
+  calorieSettingsStatus.value = 'Settings saved!'
+  setTimeout(() => {
+    calorieSettingsStatus.value = 'Configure your settings to start tracking.'
+  }, 2000)
+}
+
+function handleResetCalorieSettings() {
+  calorieSettings.value = {
+    height: null,
+    age: null,
+    sex: 'male',
+    activityLevel: '1.55',
+    goal: 'maintain'
+  }
+  calorieSettingsStatus.value = 'Settings reset.'
+}
+
+function handleAddMeal(meal) {
+  dailyMeals.value.push(meal)
+  saveMealsForDay(selectedDay.value, dailyMeals.value)
+}
+
+function handleDeleteMeal(index) {
+  dailyMeals.value.splice(index, 1)
+  saveMealsForDay(selectedDay.value, dailyMeals.value)
 }
 
 // Watchers
@@ -362,6 +469,7 @@ watch(selectedDay, () => {
   loadCheckboxes()
   loadNotes()
   loadWeight()
+  loadCalorieData()
 })
 
 watch(notesInput, () => {
@@ -375,5 +483,6 @@ onMounted(() => {
   loadCheckboxes()
   loadNotes()
   loadWeight()
+  loadCalorieData()
 })
 </script>

@@ -4,6 +4,8 @@ import { PLAN, DAYS, DAY_NAMES, CHECKBOX_IDS, SECTION_GROUPS } from '../data'
 const STORAGE_PREFIX = 'fittracker_'
 const LAST_DAY_KEY = `${STORAGE_PREFIX}last_day`
 const NOTES_PREFIX = `${STORAGE_PREFIX}note_`
+const CALORIE_SETTINGS_KEY = `${STORAGE_PREFIX}calorie_settings`
+const CALORIE_MEALS_PREFIX = `${STORAGE_PREFIX}meals_`
 
 export function useFitnessTracker() {
   // State
@@ -53,6 +55,58 @@ export function useFitnessTracker() {
 
   function noteKey(day) {
     return `${NOTES_PREFIX}${day}`
+  }
+
+  function calorieSettingsKey() {
+    return CALORIE_SETTINGS_KEY
+  }
+
+  function calorieMealsKey(day) {
+    return `${CALORIE_MEALS_PREFIX}${day}`
+  }
+
+  function getCalorieSettings() {
+    const stored = localStorage.getItem(CALORIE_SETTINGS_KEY)
+    if (!stored) {
+      return {
+        height: null,
+        age: null,
+        sex: 'male',
+        activityLevel: '1.55',
+        goal: 'maintain'
+      }
+    }
+    try {
+      return JSON.parse(stored)
+    } catch (error) {
+      console.warn('Unable to parse calorie settings', error)
+      return {
+        height: null,
+        age: null,
+        sex: 'male',
+        activityLevel: '1.55',
+        goal: 'maintain'
+      }
+    }
+  }
+
+  function saveCalorieSettings(settings) {
+    localStorage.setItem(CALORIE_SETTINGS_KEY, JSON.stringify(settings))
+  }
+
+  function getMealsForDay(day) {
+    const stored = localStorage.getItem(calorieMealsKey(day))
+    if (!stored) return []
+    try {
+      return JSON.parse(stored)
+    } catch (error) {
+      console.warn('Unable to parse meals', error)
+      return []
+    }
+  }
+
+  function saveMealsForDay(day, meals) {
+    localStorage.setItem(calorieMealsKey(day), JSON.stringify(meals))
   }
 
   function isTaskActiveForDay(id, day) {
@@ -171,6 +225,7 @@ export function useFitnessTracker() {
       localStorage.removeItem(storageKeyFor(day, id))
     })
     localStorage.removeItem(noteKey(day))
+    localStorage.removeItem(calorieMealsKey(day))
     const categories = ['cardio', 'kp', 'weights']
     categories.forEach((category) => clearOptionSelection(day, category))
   }
@@ -180,10 +235,12 @@ export function useFitnessTracker() {
       CHECKBOX_IDS.forEach((id) => localStorage.removeItem(storageKeyFor(day, id)))
       localStorage.removeItem(noteKey(day))
       localStorage.removeItem(weightKey(day))
+      localStorage.removeItem(calorieMealsKey(day))
       const categories = ['cardio', 'kp', 'weights']
       categories.forEach((category) => clearOptionSelection(day, category))
     })
     localStorage.removeItem(LAST_DAY_KEY)
+    localStorage.removeItem(CALORIE_SETTINGS_KEY)
     selectedDay.value = getTodayDay()
   }
 
@@ -196,6 +253,8 @@ export function useFitnessTracker() {
     optionKey,
     weightKey,
     noteKey,
+    calorieSettingsKey,
+    calorieMealsKey,
     isTaskActiveForDay,
     computeDayProgress,
     getOptionSelection,
@@ -206,6 +265,10 @@ export function useFitnessTracker() {
     getLatestWeightEntry,
     formatTime,
     formatRelative,
+    getCalorieSettings,
+    saveCalorieSettings,
+    getMealsForDay,
+    saveMealsForDay,
     resetDay,
     resetAll,
   }
