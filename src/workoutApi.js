@@ -137,7 +137,7 @@ export async function fetchWorkouts() {
     }
 
     // Transform exercises to our format
-    const workouts = exercises.map((exercise, index) => transformWgerExercise(exercise, categories))
+    const workouts = exercises.map((exercise) => transformWgerExercise(exercise, categories))
 
     // Update cache
     cache.exercises = workouts

@@ -7,7 +7,8 @@
     "met": 9.8,
     "caloriesPerHour": 750,
     "defaultDuration": 45,
-    "description": "Steady outdoor run on varied terrain. Great for cardiovascular endurance."
+    "description": "Steady outdoor run on varied terrain. Great for cardiovascular endurance.",
+    "keywords": "running jogging run jog outdoor outside trail road"
   },
   {
     "id": "run_treadmill",
@@ -17,7 +18,8 @@
     "met": 8.5,
     "caloriesPerHour": 680,
     "defaultDuration": 40,
-    "description": "Indoor treadmill session at moderate pace with controlled environment."
+    "description": "Indoor treadmill session at moderate pace with controlled environment.",
+    "keywords": "running jogging run jog treadmill indoor gym"
   },
   {
     "id": "cycling_outdoor",

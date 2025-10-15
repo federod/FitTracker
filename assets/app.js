@@ -594,7 +594,9 @@ function renderWorkoutLibrary() {
   const query = library.query.toLowerCase();
   const matchesQuery = (workout) => !query
     || workout.name.toLowerCase().includes(query)
-    || (workout.category && workout.category.toLowerCase().includes(query));
+    || (workout.category && workout.category.toLowerCase().includes(query))
+    || (workout.description && workout.description.toLowerCase().includes(query))
+    || (workout.keywords && workout.keywords.toLowerCase().includes(query));
   const matchesCategory = (workout) => library.category === 'All'
     || workout.category === library.category;
 
