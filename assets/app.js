@@ -610,7 +610,11 @@ function renderWorkoutLibrary() {
     return;
   }
 
-  const suffix = library.status === 'fallback' ? ' • Using built-in library.' : '';
+  let suffix = '';
+  if (library.status === 'api') suffix = ' • From ExerciseDB API';
+  else if (library.status === 'ready') suffix = ' • From local library';
+  else if (library.status === 'fallback') suffix = ' • Using built-in presets';
+
   elements.workoutSearchStatus.textContent = `Showing ${filtered.length} of ${library.items.length} workouts${suffix}`;
   elements.workoutResults.innerHTML = '';
 
@@ -681,17 +685,49 @@ async function loadWorkoutLibrary(forceRefresh = false) {
   }
 
   let items = null;
+
+  // Try ExerciseDB API (free tier, no auth required)
   try {
-    const response = await fetch('./assets/workouts.json', { cache: forceRefresh ? 'reload' : 'default' });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    items = Array.isArray(data) ? data : Array.isArray(data?.exercises) ? data.exercises : [];
-    if (!items.length) throw new Error('Empty workout dataset');
-    state.workoutLibrary.status = 'ready';
-  } catch (error) {
-    console.warn('Local workout dataset unavailable, falling back to presets.', error);
-    items = DEFAULT_WORKOUT_LIBRARY;
-    state.workoutLibrary.status = 'fallback';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const apiResponse = await fetch('https://exercisedb.p.rapidapi.com/exercises?limit=100', {
+      headers: {
+        'X-RapidAPI-Key': 'DEMO_KEY', // Free tier demo
+        'X-RapidAPI-Host': 'exercisedb.p.rapidapi.com'
+      },
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (apiResponse.ok) {
+      const apiData = await apiResponse.json();
+      if (Array.isArray(apiData) && apiData.length > 0) {
+        items = apiData;
+        state.workoutLibrary.status = 'api';
+        console.log(`Loaded ${items.length} workouts from ExerciseDB API`);
+      }
+    }
+  } catch (apiError) {
+    console.log('ExerciseDB API unavailable, using local workouts...', apiError.message);
+  }
+
+  // Fall back to local JSON file
+  if (!items) {
+    try {
+      const response = await fetch('/workouts.json', { cache: forceRefresh ? 'reload' : 'default' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      items = Array.isArray(data) ? data : Array.isArray(data?.exercises) ? data.exercises : [];
+      if (!items.length) throw new Error('Empty workout dataset');
+      state.workoutLibrary.status = 'ready';
+      console.log(`Loaded ${items.length} workouts from local file`);
+    } catch (error) {
+      console.warn('Local workout dataset unavailable, falling back to presets.', error);
+      items = DEFAULT_WORKOUT_LIBRARY;
+      state.workoutLibrary.status = 'fallback';
+    }
   }
 
   const normalized = items.map((item, index) => normalizeWorkout(item, index));

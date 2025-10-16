@@ -1,0 +1,304 @@
+[
+  {
+    "id": "run_outdoor",
+    "name": "Outdoor Run",
+    "category": "Cardio",
+    "intensity": "High",
+    "met": 9.8,
+    "caloriesPerHour": 750,
+    "defaultDuration": 45,
+    "description": "Steady outdoor run on varied terrain. Great for cardiovascular endurance.",
+    "keywords": "running jogging run jog outdoor outside trail road"
+  },
+  {
+    "id": "run_treadmill",
+    "name": "Treadmill Run",
+    "category": "Cardio",
+    "intensity": "Moderate",
+    "met": 8.5,
+    "caloriesPerHour": 680,
+    "defaultDuration": 40,
+    "description": "Indoor treadmill session at moderate pace with controlled environment.",
+    "keywords": "running jogging run jog treadmill indoor gym"
+  },
+  {
+    "id": "cycling_outdoor",
+    "name": "Outdoor Cycling",
+    "category": "Cardio",
+    "intensity": "High",
+    "met": 8,
+    "caloriesPerHour": 620,
+    "defaultDuration": 60,
+    "description": "Road cycling with rolling hills and varied terrain."
+  },
+  {
+    "id": "cycling_indoor",
+    "name": "Indoor Cycling / Spin",
+    "category": "Cardio",
+    "intensity": "High",
+    "met": 7.5,
+    "caloriesPerHour": 590,
+    "defaultDuration": 45,
+    "description": "Spin bike intervals or steady ride indoors."
+  },
+  {
+    "id": "hiit",
+    "name": "HIIT",
+    "category": "Cardio",
+    "intensity": "Very High",
+    "met": 10,
+    "caloriesPerHour": 820,
+    "defaultDuration": 30,
+    "description": "High-intensity interval training with minimal rest periods."
+  },
+  {
+    "id": "strength_full",
+    "name": "Strength Training (Full Body)",
+    "category": "Strength",
+    "intensity": "Moderate",
+    "met": 6,
+    "caloriesPerHour": 450,
+    "defaultDuration": 50,
+    "description": "Traditional lifting session with compound movements like squats, bench, deadlifts."
+  },
+  {
+    "id": "strength_upper",
+    "name": "Upper Body Strength",
+    "category": "Strength",
+    "intensity": "Moderate",
+    "met": 5.5,
+    "caloriesPerHour": 420,
+    "defaultDuration": 45,
+    "description": "Focus on chest, back, shoulders, and arms with weights."
+  },
+  {
+    "id": "strength_lower",
+    "name": "Lower Body Strength",
+    "category": "Strength",
+    "intensity": "Moderate",
+    "met": 6.5,
+    "caloriesPerHour": 480,
+    "defaultDuration": 45,
+    "description": "Leg day with squats, lunges, leg press, and hamstring work."
+  },
+  {
+    "id": "functional",
+    "name": "Functional Strength",
+    "category": "Strength",
+    "intensity": "Moderate",
+    "met": 6.5,
+    "caloriesPerHour": 480,
+    "defaultDuration": 45,
+    "description": "Circuit-based strength with sled pushes, kettlebells, carries, and explosive movements."
+  },
+  {
+    "id": "core_mobility",
+    "name": "Core & Mobility",
+    "category": "Mind & Body",
+    "intensity": "Light",
+    "met": 3,
+    "caloriesPerHour": 220,
+    "defaultDuration": 30,
+    "description": "Focused core work combined with mobility flows and stretching."
+  },
+  {
+    "id": "yoga_power",
+    "name": "Power Yoga",
+    "category": "Mind & Body",
+    "intensity": "Moderate",
+    "met": 4.2,
+    "caloriesPerHour": 320,
+    "defaultDuration": 60,
+    "description": "Vinyasa flow emphasizing strength, flexibility, and breath work."
+  },
+  {
+    "id": "yoga_gentle",
+    "name": "Gentle Yoga / Stretching",
+    "category": "Mind & Body",
+    "intensity": "Light",
+    "met": 2.5,
+    "caloriesPerHour": 180,
+    "defaultDuration": 45,
+    "description": "Relaxing yoga focused on flexibility and relaxation."
+  },
+  {
+    "id": "pilates",
+    "name": "Pilates",
+    "category": "Mind & Body",
+    "intensity": "Light",
+    "met": 3.5,
+    "caloriesPerHour": 260,
+    "defaultDuration": 50,
+    "description": "Pilates reformer or mat work focusing on control, core, and alignment."
+  },
+  {
+    "id": "rowing",
+    "name": "Rowing Machine",
+    "category": "Cardio",
+    "intensity": "High",
+    "met": 8.5,
+    "caloriesPerHour": 700,
+    "defaultDuration": 30,
+    "description": "Intervals or steady state rowing machine workout for full-body cardio."
+  },
+  {
+    "id": "swimming",
+    "name": "Lap Swimming",
+    "category": "Cardio",
+    "intensity": "High",
+    "met": 8.3,
+    "caloriesPerHour": 650,
+    "defaultDuration": 40,
+    "description": "Continuous freestyle swimming laps in pool."
+  },
+  {
+    "id": "stair_climb",
+    "name": "Stair Climber / StairMaster",
+    "category": "Cardio",
+    "intensity": "High",
+    "met": 8.8,
+    "caloriesPerHour": 720,
+    "defaultDuration": 30,
+    "description": "Stair mill session maintaining consistent pace for lower body and cardio."
+  },
+  {
+    "id": "boxing",
+    "name": "Boxing / Kickboxing",
+    "category": "Cardio",
+    "intensity": "Very High",
+    "met": 9.5,
+    "caloriesPerHour": 780,
+    "defaultDuration": 45,
+    "description": "Heavy bag work or shadow boxing for cardio and power."
+  },
+  {
+    "id": "jumprope",
+    "name": "Jump Rope",
+    "category": "Cardio",
+    "intensity": "High",
+    "met": 11,
+    "caloriesPerHour": 900,
+    "defaultDuration": 20,
+    "description": "Continuous or interval jump rope session for explosive cardio."
+  },
+  {
+    "id": "walk_outdoor",
+    "name": "Outdoor Walk",
+    "category": "Cardio",
+    "intensity": "Light",
+    "met": 3.5,
+    "caloriesPerHour": 250,
+    "defaultDuration": 45,
+    "description": "Brisk walk outside for light activity and recovery."
+  },
+  {
+    "id": "walk_treadmill",
+    "name": "Treadmill Walk",
+    "category": "Cardio",
+    "intensity": "Light",
+    "met": 3,
+    "caloriesPerHour": 220,
+    "defaultDuration": 40,
+    "description": "Indoor walking on treadmill at moderate pace."
+  },
+  {
+    "id": "hiking",
+    "name": "Hiking",
+    "category": "Cardio",
+    "intensity": "Moderate",
+    "met": 6.5,
+    "caloriesPerHour": 500,
+    "defaultDuration": 90,
+    "description": "Outdoor hike with mixed elevation and terrain."
+  },
+  {
+    "id": "elliptical",
+    "name": "Elliptical Trainer",
+    "category": "Cardio",
+    "intensity": "Moderate",
+    "met": 7,
+    "caloriesPerHour": 550,
+    "defaultDuration": 35,
+    "description": "Low-impact cardio on elliptical machine."
+  },
+  {
+    "id": "basketball",
+    "name": "Basketball",
+    "category": "Sports",
+    "intensity": "High",
+    "met": 8,
+    "caloriesPerHour": 620,
+    "defaultDuration": 60,
+    "description": "Full-court basketball game or scrimmage."
+  },
+  {
+    "id": "soccer",
+    "name": "Soccer / Football",
+    "category": "Sports",
+    "intensity": "High",
+    "met": 8.5,
+    "caloriesPerHour": 660,
+    "defaultDuration": 60,
+    "description": "Soccer match or small-sided game for cardio and agility."
+  },
+  {
+    "id": "tennis",
+    "name": "Tennis",
+    "category": "Sports",
+    "intensity": "Moderate",
+    "met": 7,
+    "caloriesPerHour": 540,
+    "defaultDuration": 60,
+    "description": "Singles or doubles tennis match."
+  },
+  {
+    "id": "crossfit",
+    "name": "CrossFit WOD",
+    "category": "Strength",
+    "intensity": "Very High",
+    "met": 9,
+    "caloriesPerHour": 740,
+    "defaultDuration": 40,
+    "description": "High-intensity CrossFit workout of the day combining strength and conditioning."
+  },
+  {
+    "id": "circuit",
+    "name": "Circuit Training",
+    "category": "Strength",
+    "intensity": "High",
+    "met": 7.5,
+    "caloriesPerHour": 580,
+    "defaultDuration": 45,
+    "description": "Fast-paced circuit rotating through multiple exercises with minimal rest."
+  },
+  {
+    "id": "calisthenics",
+    "name": "Calisthenics / Bodyweight",
+    "category": "Strength",
+    "intensity": "Moderate",
+    "met": 5.5,
+    "caloriesPerHour": 420,
+    "defaultDuration": 40,
+    "description": "Bodyweight exercises like push-ups, pull-ups, squats, and planks."
+  },
+  {
+    "id": "abs_core",
+    "name": "Abs / Core Workout",
+    "category": "Strength",
+    "intensity": "Moderate",
+    "met": 4.5,
+    "caloriesPerHour": 340,
+    "defaultDuration": 25,
+    "description": "Dedicated core workout with planks, crunches, and oblique work."
+  },
+  {
+    "id": "stretching",
+    "name": "Static Stretching",
+    "category": "Mind & Body",
+    "intensity": "Very Light",
+    "met": 2.5,
+    "caloriesPerHour": 180,
+    "defaultDuration": 20,
+    "description": "Full-body static stretching routine for flexibility and recovery."
+  }
+]
