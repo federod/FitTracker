@@ -64,7 +64,7 @@
           <strong id="calExercise">0</strong>
         </div>
         <div class="calorie-board__row calorie-board__row--net">
-          <span>Remaining</span>
+          <span>Net</span>
           <strong id="calRemaining">0</strong>
         </div>
       </div>
@@ -268,7 +268,7 @@
       <header class="drawer__header">
         <div>
           <h2 id="foodDrawerTitle">Add food</h2>
-          <p class="drawer__subtitle" id="foodDrawerSubtitle">Search OpenFoodFacts or quick add calories.</p>
+          <p class="drawer__subtitle" id="foodDrawerSubtitle">Search nutrition database or quick add calories.</p>
         </div>
         <button class="icon-button" type="button" data-drawer-close="foodDrawer" aria-label="Close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -371,6 +371,39 @@
 
       <form id="settingsForm" class="form form--settings" novalidate>
         <fieldset>
+          <legend>Profile</legend>
+          <div class="form__row">
+            <label class="form__field">
+              <span>Name</span>
+              <input type="text" id="profileNameInput" placeholder="Your name" required />
+            </label>
+          </div>
+          <div class="form__row form__row--split">
+            <label class="form__field">
+              <span>Weight (lbs)</span>
+              <input type="number" id="profileWeightInput" min="50" max="500" step="1" required />
+            </label>
+            <label class="form__field">
+              <span>Height (inches)</span>
+              <input type="number" id="profileHeightInput" min="40" max="100" step="1" required />
+            </label>
+          </div>
+          <div class="form__row form__row--split">
+            <label class="form__field">
+              <span>Age</span>
+              <input type="number" id="profileAgeInput" min="10" max="120" step="1" required />
+            </label>
+            <label class="form__field">
+              <span>Sex</span>
+              <select id="profileSexInput" required>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
           <legend>Calorie &amp; macro goals</legend>
           <div class="form__row">
             <label class="form__field">
@@ -398,6 +431,15 @@
 
         <button class="primary-button" type="submit">Save settings</button>
       </form>
+
+      <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
+        <p style="font-size: 0.9rem; color: var(--color-text-dim, #8b92a7); margin-bottom: 0.75rem;">
+          Logged in as: <span id="userEmail" style="color: var(--color-text, #fff);"></span>
+        </p>
+        <button id="logoutButton" class="secondary-button" type="button" style="width: 100%;">
+          Sign out
+        </button>
+      </div>
     </section>
   </div>
 

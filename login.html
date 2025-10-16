@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login — FitPal</title>
+  <meta name="theme-color" content="#0b1120" />
+  <link rel="stylesheet" href="assets/styles.css" />
+  <style>
+    .login-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1rem;
+      background: var(--color-background, #0b1120);
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      padding: 2rem;
+      background: var(--color-surface, #1a1f2e);
+      border-radius: 1rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .login-title {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--color-text, #fff);
+      margin: 0 0 0.5rem 0;
+    }
+
+    .login-subtitle {
+      font-size: 0.95rem;
+      color: var(--color-text-dim, #8b92a7);
+      margin: 0;
+    }
+
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .login-error {
+      padding: 0.75rem 1rem;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      border-radius: 0.5rem;
+      color: #fca5a5;
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    .login-error.show {
+      display: block;
+    }
+
+    .login-success {
+      padding: 0.75rem 1rem;
+      background: rgba(34, 197, 94, 0.1);
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      border-radius: 0.5rem;
+      color: #86efac;
+      font-size: 0.9rem;
+      display: none;
+    }
+
+    .login-success.show {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <h1 class="login-title">Welcome to FitPal</h1>
+        <p class="login-subtitle">Enter your email to sign in or create an account</p>
+      </div>
+
+      <form id="loginForm" class="login-form">
+        <div id="loginError" class="login-error"></div>
+        <div id="loginSuccess" class="login-success"></div>
+
+        <label class="form__field">
+          <span>Email</span>
+          <input
+            type="email"
+            id="emailInput"
+            placeholder="you@example.com"
+            required
+            autocomplete="email"
+          />
+        </label>
+
+        <label class="form__field">
+          <span>Password</span>
+          <input
+            type="password"
+            id="passwordInput"
+            placeholder="Enter your password"
+            required
+            autocomplete="current-password"
+          />
+        </label>
+
+        <button class="primary-button" type="submit" id="loginButton">
+          Continue
+        </button>
+      </form>
+
+      <p style="text-align: center; margin-top: 1.5rem; font-size: 0.85rem; color: var(--color-text-dim, #8b92a7);">
+        New users will be registered automatically.
+      </p>
+    </div>
+  </div>
+
+  <script type="module">
+    const form = document.getElementById('loginForm');
+    const emailInput = document.getElementById('emailInput');
+    const passwordInput = document.getElementById('passwordInput');
+    const loginButton = document.getElementById('loginButton');
+    const errorDiv = document.getElementById('loginError');
+    const successDiv = document.getElementById('loginSuccess');
+
+    function showError(message) {
+      errorDiv.textContent = message;
+      errorDiv.classList.add('show');
+      successDiv.classList.remove('show');
+    }
+
+    function showSuccess(message) {
+      successDiv.textContent = message;
+      successDiv.classList.add('show');
+      errorDiv.classList.remove('show');
+    }
+
+    function hideMessages() {
+      errorDiv.classList.remove('show');
+      successDiv.classList.remove('show');
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideMessages();
+
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+
+      if (!email) {
+        showError('Please enter your email address');
+        return;
+      }
+
+      if (!password) {
+        showError('Please enter your password');
+        return;
+      }
+
+      // Disable button and show loading state
+      loginButton.disabled = true;
+      loginButton.textContent = 'Signing in...';
+
+      try {
+        const response = await fetch('/.netlify/functions/auth-login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Login failed');
+        }
+
+        // Store token in localStorage
+        localStorage.setItem('authToken', data.token);
+        localStorage.setItem('userEmail', data.user.email);
+
+        const successMessage = data.message || 'Login successful!';
+        showSuccess(successMessage + ' Redirecting...');
+
+        // Redirect to main app after short delay
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1000);
+      } catch (error) {
+        console.error('Login error:', error);
+        showError(error.message || 'Unable to sign in. Please try again.');
+        loginButton.disabled = false;
+        loginButton.textContent = 'Continue';
+      }
+    });
+
+    // Check if user is already logged in
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      showSuccess('Already logged in. Redirecting...');
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 500);
+    }
+  </script>
+</body>
+</html>

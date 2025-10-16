@@ -1,3 +1,6 @@
+import * as API from '../src/api.js';
+import * as NutritionAPI from '../src/nutritionApi.js';
+
 const STORAGE_PREFIX = 'fitpal_';
 const SETTINGS_KEY = `${STORAGE_PREFIX}settings`;
 const DAY_KEY = (dateKey) => `${STORAGE_PREFIX}day_${dateKey}`;
@@ -9,6 +12,13 @@ const DEFAULT_SETTINGS = {
     carbs: 280,
     protein: 190,
     fat: 90,
+  },
+  profile: {
+    name: '', // user's name
+    weight: 180, // lbs
+    height: 70, // inches
+    age: 30,
+    sex: 'male', // 'male' or 'female'
   },
 };
 
@@ -273,7 +283,7 @@ const state = {
   settings: loadSettings(),
   searchCache: new Map(),
   workoutLibrary: {
-    status: 'loading',
+    status: 'idle', // Changed from 'loading' to 'idle' so loadWorkoutLibrary() can run
     items: [],
     categories: [],
     query: '',
@@ -284,9 +294,18 @@ const state = {
 
 document.addEventListener('DOMContentLoaded', init);
 
-function init() {
+async function init() {
+  // Check authentication
+  if (!API.requireAuth()) {
+    return; // Will redirect to login
+  }
+
   cacheElements();
   bindEvents();
+
+  // Load settings from database
+  await loadSettingsFromDatabase();
+
   renderAll();
   renderWorkoutLibrary();
   renderWorkoutFilters();
@@ -360,10 +379,17 @@ function cacheElements() {
   elements.settingsDrawer = document.getElementById('settingsDrawer');
   elements.openSettings = document.getElementById('openSettings');
   elements.settingsForm = document.getElementById('settingsForm');
+  elements.profileNameInput = document.getElementById('profileNameInput');
+  elements.profileWeightInput = document.getElementById('profileWeightInput');
+  elements.profileHeightInput = document.getElementById('profileHeightInput');
+  elements.profileAgeInput = document.getElementById('profileAgeInput');
+  elements.profileSexInput = document.getElementById('profileSexInput');
   elements.goalCaloriesInput = document.getElementById('goalCaloriesInput');
   elements.goalCarbsInput = document.getElementById('goalCarbsInput');
   elements.goalProteinInput = document.getElementById('goalProteinInput');
   elements.goalFatInput = document.getElementById('goalFatInput');
+  elements.userEmail = document.getElementById('userEmail');
+  elements.logoutButton = document.getElementById('logoutButton');
 }
 
 function bindEvents() {
@@ -470,14 +496,20 @@ function bindEvents() {
     event.preventDefault();
     saveSettingsFromForm();
   });
+
+  elements.logoutButton?.addEventListener('click', () => {
+    if (confirm('Are you sure you want to sign out?')) {
+      API.logout();
+    }
+  });
 }
 
-function renderAll() {
+async function renderAll() {
   updateTopBar();
-  renderSummary();
-  renderMeals();
-  renderWorkouts();
-  renderNotes();
+  await renderSummary();
+  await renderMeals();
+  await renderWorkouts();
+  await renderNotes();
 }
 
 function updateTopBar() {
@@ -488,20 +520,24 @@ function updateTopBar() {
   elements.jumpToday.hidden = state.selectedDate === today;
 }
 
-function renderSummary() {
-  const dayData = getDayData(state.selectedDate);
+async function renderSummary() {
+  const dayData = await getDayData(state.selectedDate);
   const totals = calculateTotals(dayData);
   const goals = state.settings.goals;
 
-  elements.summarySubtitle.textContent = 'Goal - Food + Exercise = Remaining';
+  // Calculate net calories (food eaten - exercise burned)
+  const netCalories = totals.food.calories - totals.workouts.calories;
+
+  elements.summarySubtitle.textContent = 'Food - Exercise = Net | Goal';
   elements.calGoal.textContent = formatNumber(goals.calories);
   elements.calFood.textContent = formatNumber(totals.food.calories);
   elements.calExercise.textContent = formatNumber(totals.workouts.calories);
-  elements.calRemaining.textContent = formatNumber(goals.calories - totals.food.calories + totals.workouts.calories);
+  elements.calRemaining.textContent = formatNumber(netCalories);
 
-  const progress = goals.calories > 0 ? Math.min(100, (totals.food.calories / goals.calories) * 100) : 0;
+  // Progress bar shows net calories vs goal
+  const progress = goals.calories > 0 ? Math.min(100, (netCalories / goals.calories) * 100) : 0;
   elements.calorieProgressFill.style.width = `${progress}%`;
-  elements.calorieProgressText.textContent = `${formatNumber(totals.food.calories)} / ${formatNumber(goals.calories)} kcal`;
+  elements.calorieProgressText.textContent = `${formatNumber(netCalories)} / ${formatNumber(goals.calories)} kcal`;
 
   updateMacro('carbs', totals.food.carbs, goals.carbs);
   updateMacro('protein', totals.food.protein, goals.protein);
@@ -516,8 +552,8 @@ function updateMacro(key, value, goal) {
   fillEl.style.width = `${progress}%`;
 }
 
-function renderMeals() {
-  const dayData = getDayData(state.selectedDate);
+async function renderMeals() {
+  const dayData = await getDayData(state.selectedDate);
   MEALS.forEach(({ key }) => {
     const mealData = dayData.meals[key] || [];
     const mealEls = elements.meals[key];
@@ -577,6 +613,8 @@ function renderWorkoutLibrary() {
   if (!elements.workoutResults || !elements.workoutSearchStatus) return;
   const library = state.workoutLibrary;
 
+  console.log('renderWorkoutLibrary called:', { status: library.status, itemCount: library.items.length });
+
   if (library.status === 'loading') {
     elements.workoutSearchStatus.textContent = 'Loading workouts...';
     elements.workoutResults.innerHTML = '';
@@ -584,6 +622,7 @@ function renderWorkoutLibrary() {
   }
 
   if (!library.items.length) {
+    console.warn('No workout items loaded!', library);
     elements.workoutSearchStatus.textContent = library.status === 'fallback'
       ? 'Using built-in workouts. Add manually for now.'
       : 'No workouts available yet.';
@@ -611,7 +650,7 @@ function renderWorkoutLibrary() {
   }
 
   let suffix = '';
-  if (library.status === 'api') suffix = ' • From ExerciseDB API';
+  if (library.status === 'api') suffix = ' • From API Ninjas';
   else if (library.status === 'ready') suffix = ' • From local library';
   else if (library.status === 'fallback') suffix = ' • Using built-in presets';
 
@@ -672,7 +711,13 @@ function renderWorkoutFilters() {
 }
 
 async function loadWorkoutLibrary(forceRefresh = false) {
-  if (state.workoutLibrary.status === 'loading' && !forceRefresh) return;
+  console.log('🏋️ loadWorkoutLibrary called', { currentStatus: state.workoutLibrary.status, forceRefresh });
+
+  if (state.workoutLibrary.status === 'loading' && !forceRefresh) {
+    console.log('Already loading, skipping...');
+    return;
+  }
+
   state.workoutLibrary.status = 'loading';
   renderWorkoutLibrary();
 
@@ -686,48 +731,57 @@ async function loadWorkoutLibrary(forceRefresh = false) {
 
   let items = null;
 
-  // Try ExerciseDB API (free tier, no auth required)
+  // Try API Ninjas Exercises API
   try {
+    console.log('Fetching exercises from API Ninjas...');
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    const apiResponse = await fetch('https://exercisedb.p.rapidapi.com/exercises?limit=100', {
-      headers: {
-        'X-RapidAPI-Key': 'DEMO_KEY', // Free tier demo
-        'X-RapidAPI-Host': 'exercisedb.p.rapidapi.com'
-      },
-      signal: controller.signal
-    });
+    // Fetch exercises by type for better categorization
+    const exerciseTypes = [
+      'cardio',
+      'olympic_weightlifting',
+      'plyometrics',
+      'powerlifting',
+      'strength',
+      'stretching',
+      'strongman'
+    ];
 
+    const exercisePromises = exerciseTypes.map(type =>
+      fetch(`https://api.api-ninjas.com/v1/exercises?type=${type}`, {
+        headers: {
+          'X-Api-Key': 'ZEv05ridT7tMOUpzxPE+ig==QaSVIhQpIQ4wNiJ9'
+        },
+        signal: controller.signal
+      }).then(res => res.ok ? res.json() : [])
+    );
+
+    const results = await Promise.all(exercisePromises);
     clearTimeout(timeoutId);
 
-    if (apiResponse.ok) {
-      const apiData = await apiResponse.json();
-      if (Array.isArray(apiData) && apiData.length > 0) {
-        items = apiData;
-        state.workoutLibrary.status = 'api';
-        console.log(`Loaded ${items.length} workouts from ExerciseDB API`);
-      }
+    const allExercises = results.flat();
+
+    // Remove duplicates based on name
+    const uniqueExercises = Array.from(
+      new Map(allExercises.map(ex => [ex.name.toLowerCase(), ex])).values()
+    );
+
+    if (uniqueExercises.length > 0) {
+      items = uniqueExercises;
+      state.workoutLibrary.status = 'api';
+      console.log(`✅ Loaded ${items.length} workouts from API Ninjas`);
     }
   } catch (apiError) {
-    console.log('ExerciseDB API unavailable, using local workouts...', apiError.message);
+    console.log('API Ninjas unavailable, trying fallback...', apiError.message);
   }
 
-  // Fall back to local JSON file
-  if (!items) {
-    try {
-      const response = await fetch('/workouts.json', { cache: forceRefresh ? 'reload' : 'default' });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      items = Array.isArray(data) ? data : Array.isArray(data?.exercises) ? data.exercises : [];
-      if (!items.length) throw new Error('Empty workout dataset');
-      state.workoutLibrary.status = 'ready';
-      console.log(`Loaded ${items.length} workouts from local file`);
-    } catch (error) {
-      console.warn('Local workout dataset unavailable, falling back to presets.', error);
-      items = DEFAULT_WORKOUT_LIBRARY;
-      state.workoutLibrary.status = 'fallback';
-    }
+  // Fall back to default library if API fails
+  if (!items || items.length === 0) {
+    console.warn('Using fallback presets...');
+    items = DEFAULT_WORKOUT_LIBRARY;
+    state.workoutLibrary.status = 'fallback';
+    console.log(`Loaded ${items.length} fallback workouts`);
   }
 
   const normalized = items.map((item, index) => normalizeWorkout(item, index));
@@ -879,8 +933,32 @@ function handleWorkoutResultAction(event) {
   logWorkoutFromLibrary(workout, duration);
 }
 
-function logWorkoutFromLibrary(workout, duration) {
-  const calories = Math.round((workout.caloriesPerHour / 60) * duration);
+async function logWorkoutFromLibrary(workout, duration) {
+  const userWeight = state.settings.profile.weight;
+  let calories = Math.round((workout.caloriesPerHour / 60) * duration);
+
+  // Try to get personalized calories from API Ninjas Calories Burned API
+  try {
+    const response = await fetch(
+      `https://api.api-ninjas.com/v1/caloriesburned?activity=${encodeURIComponent(workout.name)}&weight=${userWeight}&duration=${duration}`,
+      {
+        headers: {
+          'X-Api-Key': 'ZEv05ridT7tMOUpzxPE+ig==QaSVIhQpIQ4wNiJ9'
+        }
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.length > 0 && data[0].total_calories) {
+        calories = Math.round(data[0].total_calories);
+        console.log(`✅ Personalized calories from API: ${calories} kcal (${userWeight} lbs, ${duration} min)`);
+      }
+    }
+  } catch (error) {
+    console.warn('Calories Burned API unavailable, using formula-based calculation:', error);
+  }
+
   const entry = {
     id: generateId(),
     name: workout.name,
@@ -896,8 +974,8 @@ function logWorkoutFromLibrary(workout, duration) {
   elements.workoutSearchStatus.textContent = `Logged ${workout.name} for ${duration} min (${calories} kcal).`;
 }
 
-function renderWorkouts() {
-  const dayData = getDayData(state.selectedDate);
+async function renderWorkouts() {
+  const dayData = await getDayData(state.selectedDate);
   const workouts = dayData.workouts || [];
   elements.workoutList.innerHTML = '';
 
@@ -941,8 +1019,9 @@ function renderWorkoutEntry(workout) {
   return li;
 }
 
-function renderNotes() {
-  const note = localStorage.getItem(NOTES_KEY(state.selectedDate)) || '';
+async function renderNotes() {
+  const dayData = await getDayData(state.selectedDate);
+  const note = dayData.notes || '';
   elements.dailyNotes.value = note;
   elements.notesStatus.textContent = note ? 'Saved.' : 'No notes yet.';
 }
@@ -954,27 +1033,37 @@ function changeDay(offset) {
   renderAll();
 }
 
-function getDayData(dateKey) {
-  const raw = localStorage.getItem(DAY_KEY(dateKey));
-  if (!raw) {
-    return {
-      meals: {
-        breakfast: [],
-        lunch: [],
-        dinner: [],
-        snacks: [],
-      },
-      workouts: [],
-    };
+// Cache for day data to avoid multiple fetches
+const dayDataCache = new Map();
+
+async function getDayData(dateKey) {
+  // Check cache first
+  if (dayDataCache.has(dateKey)) {
+    return dayDataCache.get(dateKey);
   }
+
   try {
-    const parsed = JSON.parse(raw);
-    parsed.meals = parsed.meals || { breakfast: [], lunch: [], dinner: [], snacks: [] };
-    parsed.workouts = parsed.workouts || [];
-    return parsed;
+    const response = await API.getDailyLog(dateKey);
+    const log = response.log;
+
+    const dayData = {
+      meals: log?.meals || {
+        breakfast: [],
+        lunch: [],
+        dinner: [],
+        snacks: [],
+      },
+      workouts: log?.workouts || [],
+      notes: log?.notes || '',
+    };
+
+    // Cache it
+    dayDataCache.set(dateKey, dayData);
+    return dayData;
   } catch (error) {
-    console.warn('Unable to parse stored day data', error);
-    return {
+    console.error('Failed to load day data:', error);
+    // Return empty data if fetch fails
+    const emptyData = {
       meals: {
         breakfast: [],
         lunch: [],
@@ -982,12 +1071,22 @@ function getDayData(dateKey) {
         snacks: [],
       },
       workouts: [],
+      notes: '',
     };
+    dayDataCache.set(dateKey, emptyData);
+    return emptyData;
   }
 }
 
-function saveDayData(dateKey, data) {
-  localStorage.setItem(DAY_KEY(dateKey), JSON.stringify(data));
+async function saveDayData(dateKey, data) {
+  try {
+    await API.saveDailyLog(dateKey, data.meals, data.workouts, data.notes);
+    // Update cache
+    dayDataCache.set(dateKey, data);
+  } catch (error) {
+    console.error('Failed to save day data:', error);
+    alert('Failed to save data. Please try again.');
+  }
 }
 
 function calculateTotals(dayData) {
@@ -1019,31 +1118,31 @@ function calculateTotals(dayData) {
   return totals;
 }
 
-function removeMealEntry(mealKey, entryId) {
-  const dayData = getDayData(state.selectedDate);
+async function removeMealEntry(mealKey, entryId) {
+  const dayData = await getDayData(state.selectedDate);
   dayData.meals[mealKey] = dayData.meals[mealKey].filter((entry) => entry.id !== entryId);
-  saveDayData(state.selectedDate, dayData);
-  renderSummary();
-  renderMeals();
+  await saveDayData(state.selectedDate, dayData);
+  await renderSummary();
+  await renderMeals();
 }
 
-function addMealEntry(mealKey, entry) {
-  const dayData = getDayData(state.selectedDate);
+async function addMealEntry(mealKey, entry) {
+  const dayData = await getDayData(state.selectedDate);
   dayData.meals[mealKey].push(entry);
-  saveDayData(state.selectedDate, dayData);
-  renderSummary();
-  renderMeals();
+  await saveDayData(state.selectedDate, dayData);
+  await renderSummary();
+  await renderMeals();
 }
 
-function appendWorkout(workout) {
-  const dayData = getDayData(state.selectedDate);
+async function appendWorkout(workout) {
+  const dayData = await getDayData(state.selectedDate);
   dayData.workouts.push(workout);
-  saveDayData(state.selectedDate, dayData);
-  renderSummary();
-  renderWorkouts();
+  await saveDayData(state.selectedDate, dayData);
+  await renderSummary();
+  await renderWorkouts();
 }
 
-function addWorkout() {
+async function addWorkout() {
   const name = elements.workoutName.value.trim();
   const duration = Number.parseInt(elements.workoutDuration.value, 10) || 0;
   const calories = Number.parseInt(elements.workoutCalories.value, 10) || 0;
@@ -1058,17 +1157,17 @@ function addWorkout() {
     calories,
     source: 'manual',
   };
-  appendWorkout(workout);
+  await appendWorkout(workout);
   elements.workoutForm.reset();
   toggleWorkoutForm(false);
 }
 
-function removeWorkout(workoutId) {
-  const dayData = getDayData(state.selectedDate);
+async function removeWorkout(workoutId) {
+  const dayData = await getDayData(state.selectedDate);
   dayData.workouts = dayData.workouts.filter((workout) => workout.id !== workoutId);
-  saveDayData(state.selectedDate, dayData);
-  renderSummary();
-  renderWorkouts();
+  await saveDayData(state.selectedDate, dayData);
+  await renderSummary();
+  await renderWorkouts();
 }
 
 function toggleWorkoutForm(show) {
@@ -1081,20 +1180,21 @@ function toggleWorkoutForm(show) {
   }
 }
 
-function saveNotes() {
+async function saveNotes() {
   const value = elements.dailyNotes.value.trim();
-  if (!value) {
-    localStorage.removeItem(NOTES_KEY(state.selectedDate));
-    elements.notesStatus.textContent = 'Notes cleared.';
-    return;
-  }
-  localStorage.setItem(NOTES_KEY(state.selectedDate), value);
-  elements.notesStatus.textContent = 'Saved just now.';
+  const dayData = await getDayData(state.selectedDate);
+  dayData.notes = value;
+
+  await saveDayData(state.selectedDate, dayData);
+  elements.notesStatus.textContent = value ? 'Saved just now.' : 'Notes cleared.';
 }
 
-function clearNotes() {
+async function clearNotes() {
   elements.dailyNotes.value = '';
-  localStorage.removeItem(NOTES_KEY(state.selectedDate));
+  const dayData = await getDayData(state.selectedDate);
+  dayData.notes = '';
+
+  await saveDayData(state.selectedDate, dayData);
   elements.notesStatus.textContent = 'Notes cleared.';
 }
 
@@ -1102,7 +1202,7 @@ function openFoodDrawer(mealKey, quickAdd) {
   state.activeMeal = mealKey;
   elements.foodDrawerSubtitle.textContent = quickAdd
     ? `Quick add to ${capitalize(mealKey)}.`
-    : `Searching OpenFoodFacts and logging under ${capitalize(mealKey)}.`;
+    : `Search nutrition databases for ${capitalize(mealKey)}.`;
   if (quickAdd) {
     elements.quickAddSection.setAttribute('open', '');
     elements.foodSearchInput.value = '';
@@ -1132,36 +1232,52 @@ function handleFoodSearchSubmit(event) {
 }
 
 async function performFoodSearch(query) {
-  elements.foodSearchStatus.textContent = 'Searching OpenFoodFacts...';
+  elements.foodSearchStatus.textContent = 'Searching nutrition database...';
   elements.foodResults.innerHTML = '';
   state.searchCache.clear();
 
-  const endpoint = new URL('https://world.openfoodfacts.org/cgi/search.pl');
-  endpoint.searchParams.set('search_terms', query);
-  endpoint.searchParams.set('search_simple', '1');
-  endpoint.searchParams.set('action', 'process');
-  endpoint.searchParams.set('json', '1');
-  endpoint.searchParams.set('page_size', '20');
-
+  // Try OpenFoodFacts first (it's free and comprehensive)
   try {
+    const endpoint = new URL('https://world.openfoodfacts.org/cgi/search.pl');
+    endpoint.searchParams.set('search_terms', query);
+    endpoint.searchParams.set('search_simple', '1');
+    endpoint.searchParams.set('action', 'process');
+    endpoint.searchParams.set('json', '1');
+    endpoint.searchParams.set('page_size', '20');
+
     const response = await fetch(endpoint.toString(), { cache: 'no-store' });
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+    if (response.ok) {
+      const payload = await response.json();
+      const products = Array.isArray(payload.products) ? payload.products : [];
+      const results = products
+        .map((product) => simplifyOpenFoodFactsProduct(product))
+        .filter(Boolean);
+
+      if (results.length > 0) {
+        renderFoodResults(results, false);
+        elements.foodSearchStatus.textContent = `Found ${results.length} result${results.length === 1 ? '' : 's'} from OpenFoodFacts.`;
+        return;
+      }
     }
-    const payload = await response.json();
-    const products = Array.isArray(payload.products) ? payload.products : [];
-    const results = products
-      .map((product) => simplifyOpenFoodFactsProduct(product))
-      .filter(Boolean);
-    if (!results.length) {
-      elements.foodSearchStatus.textContent = 'No matches on OpenFoodFacts. Try another search or quick add manually.';
+  } catch (error) {
+    console.warn('OpenFoodFacts search failed, trying API Ninjas...', error);
+  }
+
+  // Fallback to API Ninjas Nutrition API (with free tier limitations)
+  try {
+    const results = await NutritionAPI.searchNutrition(query);
+
+    if (!results || !results.length) {
+      elements.foodSearchStatus.textContent = 'No matches found. Try another search or quick add manually.';
+      renderFoodResults(SAMPLE_RESULTS, true);
       return;
     }
+
     renderFoodResults(results, false);
-    elements.foodSearchStatus.textContent = `Showing ${results.length} result${results.length === 1 ? '' : 's'} from OpenFoodFacts.`;
+    elements.foodSearchStatus.textContent = `Found ${results.length} item${results.length === 1 ? '' : 's'} from API Ninjas (estimated calories).`;
   } catch (error) {
-    console.warn('Food search failed', error);
-    elements.foodSearchStatus.textContent = 'OpenFoodFacts unavailable. Showing demo foods instead.';
+    console.warn('All nutrition APIs failed', error);
+    elements.foodSearchStatus.textContent = 'Nutrition search unavailable. Showing sample foods or use quick add.';
     renderFoodResults(SAMPLE_RESULTS, true);
   }
 }
@@ -1384,25 +1500,81 @@ function closeDrawer(id) {
 }
 
 function populateSettingsForm() {
-  const { goals } = state.settings;
+  const { goals, profile } = state.settings;
+  elements.profileNameInput.value = profile.name || '';
+  elements.profileWeightInput.value = profile.weight;
+  elements.profileHeightInput.value = profile.height;
+  elements.profileAgeInput.value = profile.age;
+  elements.profileSexInput.value = profile.sex;
   elements.goalCaloriesInput.value = goals.calories;
   elements.goalCarbsInput.value = goals.carbs;
   elements.goalProteinInput.value = goals.protein;
   elements.goalFatInput.value = goals.fat;
+
+  // Show user email
+  const email = localStorage.getItem('userEmail');
+  if (elements.userEmail && email) {
+    elements.userEmail.textContent = email;
+  }
 }
 
-function saveSettingsFromForm() {
+async function saveSettingsFromForm() {
+  const name = elements.profileNameInput.value.trim() || '';
+  const weight = Number.parseInt(elements.profileWeightInput.value, 10) || DEFAULT_SETTINGS.profile.weight;
+  const height = Number.parseInt(elements.profileHeightInput.value, 10) || DEFAULT_SETTINGS.profile.height;
+  const age = Number.parseInt(elements.profileAgeInput.value, 10) || DEFAULT_SETTINGS.profile.age;
+  const sex = elements.profileSexInput.value || DEFAULT_SETTINGS.profile.sex;
   const calories = Number.parseInt(elements.goalCaloriesInput.value, 10) || DEFAULT_SETTINGS.goals.calories;
   const carbs = Number.parseInt(elements.goalCarbsInput.value, 10) || DEFAULT_SETTINGS.goals.carbs;
   const protein = Number.parseInt(elements.goalProteinInput.value, 10) || DEFAULT_SETTINGS.goals.protein;
   const fat = Number.parseInt(elements.goalFatInput.value, 10) || DEFAULT_SETTINGS.goals.fat;
-  state.settings.goals = { calories, carbs, protein, fat };
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
-  closeDrawer('settingsDrawer');
-  renderSummary();
+
+  const profile = { name, weight, height, age, sex };
+  const goals = { calories, carbs, protein, fat };
+
+  try {
+    await API.updateUserProfile(profile, goals);
+    state.settings.profile = profile;
+    state.settings.goals = goals;
+    closeDrawer('settingsDrawer');
+    await renderSummary();
+  } catch (error) {
+    console.error('Failed to save settings:', error);
+    alert('Failed to save settings. Please try again.');
+  }
+}
+
+async function loadSettingsFromDatabase() {
+  try {
+    const response = await API.getUserProfile();
+
+    if (response.profile && response.goals) {
+      state.settings = {
+        profile: {
+          name: response.profile.name ?? DEFAULT_SETTINGS.profile.name,
+          weight: response.profile.weight ?? DEFAULT_SETTINGS.profile.weight,
+          height: response.profile.height ?? DEFAULT_SETTINGS.profile.height,
+          age: response.profile.age ?? DEFAULT_SETTINGS.profile.age,
+          sex: response.profile.sex ?? DEFAULT_SETTINGS.profile.sex,
+        },
+        goals: {
+          calories: response.goals.calories ?? DEFAULT_SETTINGS.goals.calories,
+          carbs: response.goals.carbs ?? DEFAULT_SETTINGS.goals.carbs,
+          protein: response.goals.protein ?? DEFAULT_SETTINGS.goals.protein,
+          fat: response.goals.fat ?? DEFAULT_SETTINGS.goals.fat,
+        },
+      };
+    } else {
+      state.settings = cloneDefaultSettings();
+    }
+  } catch (error) {
+    console.error('Failed to load settings:', error);
+    state.settings = cloneDefaultSettings();
+  }
 }
 
 function loadSettings() {
+  // This function is now only used for initial state - actual loading happens in loadSettingsFromDatabase
   const raw = localStorage.getItem(SETTINGS_KEY);
   if (!raw) return cloneDefaultSettings();
   try {
@@ -1413,6 +1585,13 @@ function loadSettings() {
         carbs: parsed?.goals?.carbs ?? DEFAULT_SETTINGS.goals.carbs,
         protein: parsed?.goals?.protein ?? DEFAULT_SETTINGS.goals.protein,
         fat: parsed?.goals?.fat ?? DEFAULT_SETTINGS.goals.fat,
+      },
+      profile: {
+        name: parsed?.profile?.name ?? DEFAULT_SETTINGS.profile.name,
+        weight: parsed?.profile?.weight ?? DEFAULT_SETTINGS.profile.weight,
+        height: parsed?.profile?.height ?? DEFAULT_SETTINGS.profile.height,
+        age: parsed?.profile?.age ?? DEFAULT_SETTINGS.profile.age,
+        sex: parsed?.profile?.sex ?? DEFAULT_SETTINGS.profile.sex,
       },
     };
   } catch (error) {
